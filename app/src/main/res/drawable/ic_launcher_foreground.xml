@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Downward arrow into a tray: the "download" glyph. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 L60,30 L60,54 L70,54 L57,70 L44,54 L54,54 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,74 L70,74 L70,80 L38,80 Z" />
+</vector>
