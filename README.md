@@ -8,6 +8,15 @@ This is a **thin client** — it does no extraction itself. The downloading is d
 just hands it a URL and streams the result to the gallery. It's built for **personal / sideload** use
 (no Play Store), Android only.
 
+## Screenshots
+
+| Home | Downloading | Saved | Settings |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home.png" width="200" alt="Home screen with recent downloads" /> | <img src="docs/screenshots/downloading.png" width="200" alt="Live download progress" /> | <img src="docs/screenshots/saved.png" width="200" alt="Saved to gallery confirmation" /> | <img src="docs/screenshots/settings.png" width="200" alt="Backend settings" /> |
+
+Dark-first theme with a violet→pink brand accent and platform-aware badges (TikTok cyan/red, Instagram
+sunset). Captured on an Android 14 emulator.
+
 ## Features
 
 - **Share-sheet import** — in TikTok or Instagram, tap **Share → TTL Downloader** and the download starts
