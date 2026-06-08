@@ -9,4 +9,6 @@
 .cxx
 *.keystore
 *.jks
+keystore.properties
 /app/build/
+/dist/

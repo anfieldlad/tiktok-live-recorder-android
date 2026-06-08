@@ -18,7 +18,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
  */
 class SettingsRepo(private val context: Context) {
 
-    val baseUrlFlow: Flow<String> = context.settingsDataStore.data.map { it[KEY_BASE_URL].orEmpty() }
+    val baseUrlFlow: Flow<String> = context.settingsDataStore.data.map { it[KEY_BASE_URL] ?: DEFAULT_BASE_URL }
     val apiKeyFlow: Flow<String> = context.settingsDataStore.data.map { it[KEY_API_KEY].orEmpty() }
 
     suspend fun baseUrl(): String = baseUrlFlow.first()
@@ -38,5 +38,8 @@ class SettingsRepo(private val context: Context) {
     private companion object {
         val KEY_BASE_URL = stringPreferencesKey("base_url")
         val KEY_API_KEY = stringPreferencesKey("api_key")
+
+        // Pre-filled so the app works out of the box; change it in Settings anytime.
+        const val DEFAULT_BASE_URL = "https://app.dioriza.com/tiktok"
     }
 }
