@@ -38,13 +38,21 @@ class DownloadManager(
             onProgress(DownloadProgress.Requesting(routed.platform))
             val response = api.createDownload(routed.platform, routed.url)
 
-            if (response.fileUrls.isEmpty()) {
-                return fail("The server returned no files for that link.", onProgress)
+            // The backend lists metadata sidecars (.json / .info.json) alongside the media.
+            // We must NOT fetch those: the Instagram endpoint wipes the whole download once
+            // the last *media* file has been served, so a trailing .json fetch 404s and would
+            // fail the entire job (and a .json in the gallery is junk anyway). Keep only media
+            // — the parallel `files` array tells us each file_url's name.
+            val mediaUrls = response.fileUrls.filterIndexed { index, _ ->
+                isMediaFile(response.files.getOrNull(index))
+            }
+            if (mediaUrls.isEmpty()) {
+                return fail("The server returned no downloadable media for that link.", onProgress)
             }
 
             val saved = mutableListOf<SavedItem>()
-            val total = response.fileUrls.size
-            response.fileUrls.forEachIndexed { index, fileUrl ->
+            val total = mediaUrls.size
+            mediaUrls.forEachIndexed { index, fileUrl ->
                 onProgress(DownloadProgress.Saving(routed.platform, index + 1, total))
                 val item = api.withFile(fileUrl) { name, type, stream ->
                     saver.save(name, type, stream)
@@ -71,4 +79,10 @@ class DownloadManager(
 
     private fun fail(message: String, onProgress: (DownloadProgress) -> Unit): DownloadProgress =
         DownloadProgress.Failed(message).also(onProgress)
+
+    /** Real media we want in the gallery — not the metadata sidecars the extractors emit. */
+    private fun isMediaFile(name: String?): Boolean {
+        val n = name?.substringAfterLast('/')?.lowercase() ?: return false
+        return !n.endsWith(".json") && !n.endsWith(".txt") && !n.endsWith(".nfo")
+    }
 }
