@@ -68,6 +68,61 @@ class ApiClient(
         }
     }
 
+    /** Whether the backend has a stored session cookie for [platform]. */
+    suspend fun authStatus(platform: Platform): Boolean = withContext(Dispatchers.IO) {
+        val base = requireBaseUrl()
+        val request = Request.Builder()
+            .url(base + authStatusPath(platform))
+            .get()
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toApiException(response.code, text)
+            json.decodeFromString(AuthStatus.serializer(), text).configured
+        }
+    }
+
+    /** Store a freshly captured session cookie for [platform] on the backend. */
+    suspend fun saveSession(platform: Platform, sessionId: String) = withContext(Dispatchers.IO) {
+        val base = requireBaseUrl()
+        val body = authSaveBody(platform, sessionId).toRequestBody(JSON_MEDIA)
+        val request = Request.Builder()
+            .url(base + authCookiesPath(platform))
+            .post(body)
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw toApiException(response.code, response.body?.string().orEmpty())
+        }
+    }
+
+    /** Remove the stored session cookie for [platform] (log out). */
+    suspend fun clearSession(platform: Platform) = withContext(Dispatchers.IO) {
+        val base = requireBaseUrl()
+        val request = Request.Builder()
+            .url(base + authCookiesPath(platform))
+            .delete()
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw toApiException(response.code, response.body?.string().orEmpty())
+        }
+    }
+
+    private fun authStatusPath(platform: Platform): String =
+        if (platform == Platform.TIKTOK) "/auth/status" else "/instagram/auth/status"
+
+    private fun authCookiesPath(platform: Platform): String =
+        if (platform == Platform.TIKTOK) "/auth/tiktok-cookies" else "/instagram/auth/cookies"
+
+    private fun authSaveBody(platform: Platform, sessionId: String): String {
+        // TikTok stores the sessionid value under `session_ss`; Instagram under `sessionid`.
+        val field = if (platform == Platform.TIKTOK) "session_ss" else "sessionid"
+        val escaped = sessionId.replace("\\", "\\\\").replace("\"", "\\\"")
+        return "{\"$field\":\"$escaped\"}"
+    }
+
     private suspend fun requireBaseUrl(): String {
         val base = settings.baseUrl()
         if (base.isBlank()) throw ApiException("No backend URL configured. Set it in Settings.")

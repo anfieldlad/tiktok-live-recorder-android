@@ -10,9 +10,13 @@ just hands it a URL and streams the result to the gallery. It's built for **pers
 
 ## Screenshots
 
-| Home | Downloading | Saved | Settings |
-| :---: | :---: | :---: | :---: |
-| <img src="docs/screenshots/home.png" width="200" alt="Home screen with recent downloads" /> | <img src="docs/screenshots/downloading.png" width="200" alt="Live download progress" /> | <img src="docs/screenshots/saved.png" width="200" alt="Saved to gallery confirmation" /> | <img src="docs/screenshots/settings.png" width="200" alt="Backend settings" /> |
+| Home | Downloading | Saved |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/home.png" width="200" alt="Home screen with recent downloads" /> | <img src="docs/screenshots/downloading.png" width="200" alt="Live download progress" /> | <img src="docs/screenshots/saved.png" width="200" alt="Saved to gallery confirmation" /> |
+
+| Settings | Accounts | Web login |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/settings.png" width="200" alt="Backend settings" /> | <img src="docs/screenshots/accounts.png" width="200" alt="Per-platform login status" /> | <img src="docs/screenshots/login.png" width="200" alt="In-app web login" /> |
 
 Dark-first theme with a violet→pink brand accent and platform-aware badges (TikTok cyan/red, Instagram
 sunset). Captured on an Android 14 emulator.
@@ -27,6 +31,9 @@ sunset). Captured on an Android 14 emulator.
   download it.
 - **Foreground service** — downloads keep running (with a progress notification) even if you leave the app,
   which matters because server-side downloads can take 30–120s.
+- **Account login for private media** — sign in to TikTok/Instagram in a secure in-app web login. The app
+  captures only the resulting `sessionid` cookie and stores it on *your* backend, which then uses it to
+  download private or age-restricted posts. Your username/password never touch the app.
 
 ## How it talks to the backend
 
@@ -35,10 +42,13 @@ sunset). Captured on an Android 14 emulator.
 | Start a TikTok download | `POST {baseUrl}/downloads` with `{ "url": "..." }` |
 | Start an Instagram download | `POST {baseUrl}/instagram/downloads` with `{ "url": "..." }` |
 | Fetch a resulting file | `GET {baseUrl}{file_url}` (paths come back in `file_urls`) |
+| TikTok login status / save / clear | `GET /auth/status` · `POST /auth/tiktok-cookies {session_ss}` · `DELETE /auth/tiktok-cookies` |
+| Instagram login status / save / clear | `GET /instagram/auth/status` · `POST /instagram/auth/cookies {sessionid}` · `DELETE /instagram/auth/cookies` |
 
 Platform is chosen automatically from the link's hostname. Each file is fetched exactly once — the
 Instagram endpoint deletes its server-side copy after serving. An optional `X-API-Key` header is sent when
-an API key is configured in Settings.
+an API key is configured in Settings. For login, the app reads the `sessionid` cookie from the web-login
+WebView and posts it to the backend (TikTok stores that value under `session_ss`).
 
 ## Setup
 
@@ -83,9 +93,12 @@ app/src/main/java/com/ttldownloader/app/
   TtlApp.kt                 Application + tiny manual-DI container (lazy singletons)
   MainActivity.kt           Compose host; clipboard check on resume; ACTION_VIEW links
   ShareReceiverActivity.kt  ACTION_SEND target (the share-sheet entry point)
+  auth/
+    SessionLoginActivity.kt WebView login; captures the sessionid cookie -> backend
   net/
     DownloadModels.kt       Platform enum + response/error models
-    ApiClient.kt            OkHttp client: createDownload(), withFile()
+    AuthModels.kt           Auth status model
+    ApiClient.kt            OkHttp client: createDownload(), withFile(), auth*()
   domain/UrlRouter.kt       Extract a URL from shared text + route by hostname
   download/
     DownloadManager.kt      Orchestrates POST -> stream files -> gallery; emits progress
@@ -111,7 +124,8 @@ Native Kotlin · Jetpack Compose (Material 3) · OkHttp · kotlinx.serialization
 - **Cleartext HTTP is allowed.** The backend is served over plain `http://` on a private network, so the
   app sets `android:usesCleartextTraffic="true"`. Android blocks cleartext by default; this is required
   to reach an HTTP backend (and is acceptable for a personal app on a trusted network/Tailscale).
-- **No login flow.** The app inherits whatever session cookies the *server* already has. Private or
-  age-gated content depends on the backend's configuration, not the phone.
+- **Login & private media.** Sign-in happens in a normal web login (Instagram/TikTok's own page) inside a
+  WebView. The app captures only the `sessionid` cookie on success and hands it to your backend — it never
+  sees or stores your password. Manage sign-in per platform under **Settings → Accounts**.
 - **Personal use.** Downloader apps are routinely rejected from the Play Store; this is meant to be
   sideloaded.

@@ -1,9 +1,13 @@
 package com.ttldownloader.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +35,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,10 +58,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ttldownloader.app.auth.SessionLoginActivity
 import com.ttldownloader.app.data.HistoryEntry
 import com.ttldownloader.app.download.DownloadProgress
 import com.ttldownloader.app.net.Platform
@@ -527,12 +534,25 @@ private fun SettingsScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     var baseUrl by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var apiKey by remember(savedApiKey) { mutableStateOf(savedApiKey) }
 
+    val context = LocalContext.current
+    val tiktokConnected by viewModel.tiktokConnected.collectAsStateWithLifecycle()
+    val instagramConnected by viewModel.instagramConnected.collectAsStateWithLifecycle()
+    val loginLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { viewModel.refreshAuthStatus() }
+
+    LaunchedEffect(savedBaseUrl) {
+        if (savedBaseUrl.isNotBlank()) viewModel.refreshAuthStatus()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .systemBarsPadding()
             .imePadding()
-            .padding(horizontal = 20.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(
@@ -587,5 +607,66 @@ private fun SettingsScreen(viewModel: AppViewModel, onBack: () -> Unit) {
                 onBack()
             },
         )
+
+        if (savedBaseUrl.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text("Accounts", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Log in to download private or age-restricted posts. Your session is captured " +
+                    "in a secure web login and stored on your backend — credentials never touch this app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AccountRow(
+                platform = Platform.TIKTOK,
+                connected = tiktokConnected,
+                onLogin = { loginLauncher.launch(SessionLoginActivity.intent(context, Platform.TIKTOK)) },
+                onLogout = { viewModel.logout(Platform.TIKTOK) },
+            )
+            AccountRow(
+                platform = Platform.INSTAGRAM,
+                connected = instagramConnected,
+                onLogin = { loginLauncher.launch(SessionLoginActivity.intent(context, Platform.INSTAGRAM)) },
+                onLogout = { viewModel.logout(Platform.INSTAGRAM) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountRow(
+    platform: Platform,
+    connected: Boolean,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlatformBadge(platform, size = 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(platform.label, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (connected) "Connected" else "Not connected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (connected) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (connected) {
+                TextButton(onClick = onLogout) { Text("Log out") }
+            } else {
+                Button(
+                    onClick = onLogin,
+                    shape = MaterialTheme.shapes.medium,
+                ) { Text("Log in") }
+            }
+        }
     }
 }

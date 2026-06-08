@@ -94,4 +94,28 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun clearHistory() {
         viewModelScope.launch { app.history.clear() }
     }
+
+    // --- Account sessions (for private / age-restricted downloads) ---
+
+    private val _tiktokConnected = MutableStateFlow(false)
+    val tiktokConnected: StateFlow<Boolean> = _tiktokConnected.asStateFlow()
+
+    private val _instagramConnected = MutableStateFlow(false)
+    val instagramConnected: StateFlow<Boolean> = _instagramConnected.asStateFlow()
+
+    /** Refresh per-platform login status from the backend (no-op if no backend set). */
+    fun refreshAuthStatus() {
+        viewModelScope.launch {
+            if (app.settings.baseUrl().isBlank()) return@launch
+            _tiktokConnected.value = runCatching { app.api.authStatus(Platform.TIKTOK) }.getOrDefault(false)
+            _instagramConnected.value = runCatching { app.api.authStatus(Platform.INSTAGRAM) }.getOrDefault(false)
+        }
+    }
+
+    fun logout(platform: Platform) {
+        viewModelScope.launch {
+            runCatching { app.api.clearSession(platform) }
+            refreshAuthStatus()
+        }
+    }
 }

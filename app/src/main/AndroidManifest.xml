@@ -44,6 +44,12 @@
             </intent-filter>
         </activity>
 
+        <!-- WebView login that captures the platform session cookie. -->
+        <activity
+            android:name=".auth.SessionLoginActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <service
             android:name=".download.DownloadService"
             android:exported="false"
