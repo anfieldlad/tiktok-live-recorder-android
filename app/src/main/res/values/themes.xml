@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base theme: Compose drives the real UI, this is just the launch theme. -->
-    <style name="Theme.TtlDownloader" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Base theme: Compose drives the real UI, this is just the launch theme.
+         Dark window background avoids a white flash before Compose draws. -->
+    <style name="Theme.TtlDownloader" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+    </style>
 
     <!-- Transparent theme for the share-receiver, which shows no UI of its own. -->
-    <style name="Theme.TtlDownloader.Transparent" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.TtlDownloader.Transparent" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>

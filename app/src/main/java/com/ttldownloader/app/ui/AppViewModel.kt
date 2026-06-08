@@ -7,6 +7,7 @@ import com.ttldownloader.app.TtlApp
 import com.ttldownloader.app.data.HistoryEntry
 import com.ttldownloader.app.domain.UrlRouter
 import com.ttldownloader.app.download.DownloadProgress
+import com.ttldownloader.app.net.Platform
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _clipboardSuggestion = MutableStateFlow<String?>(null)
     val clipboardSuggestion: StateFlow<String?> = _clipboardSuggestion.asStateFlow()
 
+    /** Last text we attempted to download, so "Try again" can re-run it. */
+    private var lastSharedText: String? = null
+
+    /** Platform a link routes to, for showing a chip in the clipboard banner. */
+    fun platformOf(url: String): Platform? = UrlRouter.platformFor(url)
+
     fun onUrlInputChange(value: String) {
         _urlInput.value = value
     }
@@ -52,9 +59,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Start a download for arbitrary shared/clipboard text (URL is extracted from it). */
     fun startDownload(sharedText: String) {
+        lastSharedText = sharedText
         app.controller.clear()
         app.controller.enqueue(app, sharedText)
         dismissClipboardSuggestion()
+    }
+
+    /** Re-run the most recent download attempt (used by the "Try again" action). */
+    fun retry() {
+        lastSharedText?.let { startDownload(it) }
     }
 
     /** Called when the app resumes — surface a banner if the clipboard holds a supported link. */

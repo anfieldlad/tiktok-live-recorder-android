@@ -99,6 +99,9 @@ Native Kotlin · Jetpack Compose (Material 3) · OkHttp · kotlinx.serialization
 
 ## Notes
 
+- **Cleartext HTTP is allowed.** The backend is served over plain `http://` on a private network, so the
+  app sets `android:usesCleartextTraffic="true"`. Android blocks cleartext by default; this is required
+  to reach an HTTP backend (and is acceptable for a personal app on a trusted network/Tailscale).
 - **No login flow.** The app inherits whatever session cookies the *server* already has. Private or
   age-gated content depends on the backend's configuration, not the phone.
 - **Personal use.** Downloader apps are routinely rejected from the Play Store; this is meant to be
