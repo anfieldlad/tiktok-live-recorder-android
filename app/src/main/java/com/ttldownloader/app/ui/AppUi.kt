@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,10 +76,18 @@ private val SuccessGreen = Color(0xFF3DDC84)
 @Composable
 fun AppRoot(viewModel: AppViewModel) {
     var screen by remember { mutableStateOf(Screen.Home) }
-    Box(Modifier.fillMaxSize().background(HeroGlow)) {
-        when (screen) {
-            Screen.Home -> HomeScreen(viewModel, onOpenSettings = { screen = Screen.Settings })
-            Screen.Settings -> SettingsScreen(viewModel, onBack = { screen = Screen.Home })
+    // A root Surface sets LocalContentColor to onBackground, so all text defaults to
+    // light. Without it, Compose's default content color is black — unreadable on dark.
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+    ) {
+        Box(Modifier.fillMaxSize().background(HeroGlow)) {
+            when (screen) {
+                Screen.Home -> HomeScreen(viewModel, onOpenSettings = { screen = Screen.Settings })
+                Screen.Settings -> SettingsScreen(viewModel, onBack = { screen = Screen.Home })
+            }
         }
     }
 }
@@ -166,7 +175,11 @@ private fun HeroHeader(onOpenSettings: () -> Unit) {
             AppLogoBadge(Icons.Filled.Download)
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("TTL Downloader", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "TTL Downloader",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
                 Text(
                     "Save TikTok & Instagram, instantly",
                     style = MaterialTheme.typography.bodySmall,
@@ -231,6 +244,7 @@ private fun BackendNotConfiguredCard(onOpenSettings: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
