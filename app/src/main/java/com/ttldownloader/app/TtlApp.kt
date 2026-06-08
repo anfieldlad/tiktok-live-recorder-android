@@ -6,6 +6,7 @@ import com.ttldownloader.app.data.MediaStoreSaver
 import com.ttldownloader.app.data.SettingsRepo
 import com.ttldownloader.app.download.DownloadController
 import com.ttldownloader.app.download.DownloadManager
+import com.ttldownloader.app.live.LiveController
 import com.ttldownloader.app.net.ApiClient
 
 /**
@@ -22,4 +23,7 @@ class TtlApp : Application() {
 
     /** Process-wide holder for the currently active download's progress. */
     val controller: DownloadController by lazy { DownloadController() }
+
+    /** Process-wide holder for the active live recording. */
+    val liveController: LiveController by lazy { LiveController() }
 }

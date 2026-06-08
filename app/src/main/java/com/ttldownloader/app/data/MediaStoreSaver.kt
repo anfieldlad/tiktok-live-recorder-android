@@ -80,6 +80,42 @@ class MediaStoreSaver(private val context: Context) {
         return SavedItem(itemUri, filename, isVideo)
     }
 
+    /**
+     * Create a pending video entry in the gallery for progressive writing (live recording),
+     * returning its content Uri. Call [openOutput] to write, then [publishVideo] when done
+     * (or [discardVideo] to remove a failed one).
+     */
+    fun createPendingVideo(displayName: String): android.net.Uri {
+        val resolver = context.contentResolver
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/$SUBFOLDER")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+        return resolver.insert(collection, values) ?: error("MediaStore refused to create $displayName")
+    }
+
+    fun openOutput(uri: android.net.Uri): java.io.OutputStream? = context.contentResolver.openOutputStream(uri)
+
+    fun publishVideo(uri: android.net.Uri) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+            context.contentResolver.update(uri, values, null, null)
+        }
+    }
+
+    fun discardVideo(uri: android.net.Uri) {
+        runCatching { context.contentResolver.delete(uri, null, null) }
+    }
+
     private fun looksLikeVideo(filename: String, contentType: String?): Boolean {
         if (contentType != null && contentType.startsWith("video/", ignoreCase = true)) return true
         if (contentType != null && contentType.startsWith("image/", ignoreCase = true)) return false

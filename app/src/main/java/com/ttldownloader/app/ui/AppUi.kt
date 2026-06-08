@@ -33,14 +33,19 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -66,6 +72,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttldownloader.app.auth.SessionLoginActivity
 import com.ttldownloader.app.data.HistoryEntry
 import com.ttldownloader.app.download.DownloadProgress
+import com.ttldownloader.app.live.LiveState
+import com.ttldownloader.app.net.LiveStatus
 import com.ttldownloader.app.net.Platform
 import com.ttldownloader.app.ui.theme.AppLogoBadge
 import com.ttldownloader.app.ui.theme.GradientButton
@@ -75,8 +83,9 @@ import com.ttldownloader.app.ui.theme.PlatformChip
 import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
-private enum class Screen { Home, Settings }
+private enum class Screen { Home, Settings, Live }
 
 private val SuccessGreen = Color(0xFF3DDC84)
 
@@ -92,7 +101,12 @@ fun AppRoot(viewModel: AppViewModel) {
     ) {
         Box(Modifier.fillMaxSize().background(HeroGlow)) {
             when (screen) {
-                Screen.Home -> HomeScreen(viewModel, onOpenSettings = { screen = Screen.Settings })
+                Screen.Home -> HomeScreen(
+                    viewModel,
+                    onOpenSettings = { screen = Screen.Settings },
+                    onOpenLive = { screen = Screen.Live },
+                )
+                Screen.Live -> LiveScreen(viewModel, onBack = { screen = Screen.Home })
                 Screen.Settings -> SettingsScreen(viewModel, onBack = { screen = Screen.Home })
             }
         }
@@ -100,7 +114,7 @@ fun AppRoot(viewModel: AppViewModel) {
 }
 
 @Composable
-private fun HomeScreen(viewModel: AppViewModel, onOpenSettings: () -> Unit) {
+private fun HomeScreen(viewModel: AppViewModel, onOpenSettings: () -> Unit, onOpenLive: () -> Unit) {
     val baseUrl by viewModel.baseUrl.collectAsStateWithLifecycle()
     val urlInput by viewModel.urlInput.collectAsStateWithLifecycle()
     val active by viewModel.activeDownload.collectAsStateWithLifecycle()
@@ -115,7 +129,7 @@ private fun HomeScreen(viewModel: AppViewModel, onOpenSettings: () -> Unit) {
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { HeroHeader(onOpenSettings) }
+        item { HeroHeader(onOpenSettings, onOpenLive) }
 
         if (baseUrl.isBlank()) {
             item { BackendNotConfiguredCard(onOpenSettings) }
@@ -172,7 +186,7 @@ private fun HomeScreen(viewModel: AppViewModel, onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun HeroHeader(onOpenSettings: () -> Unit) {
+private fun HeroHeader(onOpenSettings: () -> Unit, onOpenLive: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -194,8 +208,13 @@ private fun HeroHeader(onOpenSettings: () -> Unit) {
                 )
             }
         }
-        IconButton(onClick = onOpenSettings) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onOpenLive) {
+                Icon(Icons.Filled.Videocam, contentDescription = "Record live")
+            }
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Filled.Settings, contentDescription = "Settings")
+            }
         }
     }
 }
@@ -669,4 +688,260 @@ private fun AccountRow(
             }
         }
     }
+}
+
+private val LiveRed = Color(0xFFFF4D4F)
+
+@Composable
+private fun LiveScreen(viewModel: AppViewModel, onBack: () -> Unit) {
+    val username by viewModel.liveUsername.collectAsStateWithLifecycle()
+    val check by viewModel.liveCheck.collectAsStateWithLifecycle()
+    val checking by viewModel.liveChecking.collectAsStateWithLifecycle()
+    val live by viewModel.liveState.collectAsStateWithLifecycle()
+
+    val busy = live is LiveState.Starting || live is LiveState.Recording
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+            Spacer(Modifier.width(4.dp))
+            Text("Live recording", style = MaterialTheme.typography.titleLarge)
+        }
+
+        Text(
+            "Record a TikTok live as it happens, straight to your gallery. The stream goes " +
+                "phone-direct — nothing is stored on the server.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = viewModel::onLiveUsernameChange,
+                    label = { Text("TikTok username") },
+                    placeholder = { Text("@username") },
+                    singleLine = true,
+                    enabled = !busy,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::checkLive,
+                        enabled = username.isNotBlank() && !checking,
+                    ) {
+                        if (checking) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Check")
+                        }
+                    }
+                    GradientButton(
+                        text = "Record live",
+                        onClick = viewModel::startLiveRecording,
+                        enabled = username.isNotBlank() && !busy,
+                        leadingIcon = Icons.Filled.FiberManualRecord,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        check?.let { LiveCheckCard(it) }
+
+        when (val s = live) {
+            is LiveState.Starting -> LiveInfoCard("Connecting…", "Resolving @${s.username}'s live stream")
+            is LiveState.Recording -> LiveRecordingCard(s, onStop = viewModel::stopLiveRecording)
+            is LiveState.Saved -> LiveSavedCard(s, onDismiss = viewModel::dismissLive)
+            is LiveState.Failed -> LiveFailedCard(s.message, onDismiss = viewModel::dismissLive)
+            LiveState.Idle -> if (check == null) LiveEmptyState()
+        }
+    }
+}
+
+@Composable
+private fun LiveCheckCard(status: LiveStatus) {
+    val ok = status.canRecord
+    val dot = if (ok) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            Spacer(Modifier.width(10.dp))
+            Text(
+                status.message.ifBlank { if (ok) "Live and ready to record." else "Not available." },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiveInfoCard(title: String, detail: String) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveRecordingCard(state: LiveState.Recording, onStop: () -> Unit) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+    val seconds = ((now - state.startedAt) / 1000).coerceAtLeast(0)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(12.dp).clip(CircleShape).background(LiveRed))
+                Spacer(Modifier.width(10.dp))
+                Text("Recording @${state.username}", style = MaterialTheme.typography.titleMedium)
+            }
+            Text(
+                "${formatElapsed(seconds)} · ${humanBytes(state.bytes)} saved",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = onStop,
+                colors = ButtonDefaults.buttonColors(containerColor = LiveRed),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.Stop, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Stop & save")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveSavedCard(state: LiveState.Saved, onDismiss: () -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Saved", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "@${state.username} · ${humanBytes(state.bytes)} in your gallery",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Dismiss") }
+        }
+    }
+}
+
+@Composable
+private fun LiveFailedCard(message: String, onDismiss: () -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Dismiss") }
+        }
+    }
+}
+
+@Composable
+private fun LiveEmptyState() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Videocam, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
+        }
+        Text("Record a live as it happens", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Enter a username, check they're live, then record straight to your gallery.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun formatElapsed(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s)
+    else String.format(Locale.US, "%d:%02d", m, s)
+}
+
+private fun humanBytes(bytes: Long): String = when {
+    bytes >= 1_000_000_000 -> String.format(Locale.US, "%.1f GB", bytes / 1e9)
+    bytes >= 1_000_000 -> String.format(Locale.US, "%.1f MB", bytes / 1e6)
+    bytes >= 1_000 -> String.format(Locale.US, "%.0f KB", bytes / 1e3)
+    else -> "$bytes B"
 }

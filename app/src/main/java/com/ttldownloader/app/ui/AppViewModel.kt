@@ -7,6 +7,9 @@ import com.ttldownloader.app.TtlApp
 import com.ttldownloader.app.data.HistoryEntry
 import com.ttldownloader.app.domain.UrlRouter
 import com.ttldownloader.app.download.DownloadProgress
+import com.ttldownloader.app.live.LiveRecordingService
+import com.ttldownloader.app.live.LiveState
+import com.ttldownloader.app.net.LiveStatus
 import com.ttldownloader.app.net.Platform
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -117,5 +120,54 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             runCatching { app.api.clearSession(platform) }
             refreshAuthStatus()
         }
+    }
+
+    // --- Live recording ---
+
+    val liveState: StateFlow<LiveState> = app.liveController.state
+
+    private val _liveUsername = MutableStateFlow("")
+    val liveUsername: StateFlow<String> = _liveUsername.asStateFlow()
+
+    private val _liveCheck = MutableStateFlow<LiveStatus?>(null)
+    val liveCheck: StateFlow<LiveStatus?> = _liveCheck.asStateFlow()
+
+    private val _liveChecking = MutableStateFlow(false)
+    val liveChecking: StateFlow<Boolean> = _liveChecking.asStateFlow()
+
+    fun onLiveUsernameChange(value: String) {
+        _liveUsername.value = value
+        _liveCheck.value = null
+    }
+
+    fun checkLive() {
+        val username = normalizeLiveUsername(_liveUsername.value)
+        if (username.isBlank()) return
+        viewModelScope.launch {
+            _liveChecking.value = true
+            _liveCheck.value = runCatching { app.api.checkLive(username) }
+                .getOrElse { LiveStatus(username = username, message = it.message ?: "Couldn't check status.") }
+            _liveChecking.value = false
+        }
+    }
+
+    fun startLiveRecording() {
+        val username = normalizeLiveUsername(_liveUsername.value)
+        if (username.isBlank()) return
+        app.liveController.reset()
+        LiveRecordingService.start(app, username)
+    }
+
+    fun stopLiveRecording() = LiveRecordingService.stop(app)
+
+    fun dismissLive() = app.liveController.reset()
+
+    /** Accept a bare handle, "@handle", or a pasted profile/live URL. */
+    private fun normalizeLiveUsername(raw: String): String {
+        var s = raw.trim()
+        val marker = "tiktok.com/@"
+        val at = s.indexOf(marker)
+        if (at >= 0) s = s.substring(at + marker.length)
+        return s.substringBefore('/').substringBefore('?').trim().trimStart('@').trim()
     }
 }

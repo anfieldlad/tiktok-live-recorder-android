@@ -4,6 +4,7 @@ import com.ttldownloader.app.data.SettingsRepo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,6 +22,11 @@ class ApiClient(
     private val client: OkHttpClient = defaultClient(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+
+    // A live stream is open-ended, so disable the read timeout for it.
+    private val streamingClient: OkHttpClient = client.newBuilder()
+        .readTimeout(0, TimeUnit.SECONDS)
+        .build()
 
     /** POST a URL to the platform endpoint and parse the file list it returns. */
     suspend fun createDownload(platform: Platform, url: String): DownloadResponse =
@@ -108,6 +114,39 @@ class ApiClient(
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw toApiException(response.code, response.body?.string().orEmpty())
         }
+    }
+
+    /** Check whether a TikTok user is live and recordable. */
+    suspend fun checkLive(username: String): LiveStatus = withContext(Dispatchers.IO) {
+        val base = requireBaseUrl()
+        val body = "{\"username\":\"${username.replace("\\", "\\\\").replace("\"", "\\\"")}\"}"
+            .toRequestBody(JSON_MEDIA)
+        val request = Request.Builder()
+            .url("$base/recordings/check-live")
+            .post(body)
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toApiException(response.code, text)
+            json.decodeFromString(LiveStatus.serializer(), text)
+        }
+    }
+
+    /**
+     * Build (but do not execute) the live-relay streaming call. The caller executes it,
+     * streams the body to storage, and `cancel()`s it to stop the recording. Uses a
+     * client with no read timeout since a live stream is open-ended.
+     */
+    suspend fun openLiveStream(username: String): Call = withContext(Dispatchers.IO) {
+        val base = requireBaseUrl()
+        val encoded = java.net.URLEncoder.encode(username, "UTF-8")
+        val request = Request.Builder()
+            .url("$base/live/stream?username=$encoded")
+            .get()
+            .applyApiKey()
+            .build()
+        streamingClient.newCall(request)
     }
 
     private fun authStatusPath(platform: Platform): String =
