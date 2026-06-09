@@ -1,13 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Downward arrow into a tray: the "download" glyph. -->
+    <!-- Bold, rounded "download" arrow into a tray, centered in the safe zone. -->
+    <!-- Arrow stem -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,30 L60,30 L60,54 L70,54 L57,70 L44,54 L54,54 Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:pathData="M54,31 L54,61" />
+    <!-- Arrowhead -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M38,74 L70,74 L70,80 L38,80 Z" />
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M39,49 L54,65 L69,49" />
+    <!-- Tray / baseline -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:pathData="M38,80 L70,80" />
 </vector>
