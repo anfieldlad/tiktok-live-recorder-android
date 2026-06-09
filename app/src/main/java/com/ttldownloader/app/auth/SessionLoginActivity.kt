@@ -2,10 +2,18 @@ package com.ttldownloader.app.auth
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
@@ -16,16 +24,31 @@ import kotlinx.coroutines.launch
 
 /**
  * Full-screen WebView that signs the user into TikTok or Instagram, captures the
- * `sessionid` cookie once login succeeds, and hands it to the backend (which uses it
- * to download private/age-restricted media). Returns RESULT_OK on success.
+ * `sessionid` cookie once login succeeds, and hands it to the backend.
  *
- * Why a WebView: the backend's own "guided browser login" is Windows-only. On a phone
- * the cookie must be captured client-side after the user authenticates.
+ * After a Google/third-party login the platform often redirects via JS to a page that
+ * renders blank in a WebView and never fires onPageFinished — so relying on that alone
+ * misses the cookie. Instead we POLL the cookie store (the sessionid is set the moment
+ * login completes), and also offer an "I'm logged in" button as a manual fallback.
  */
 class SessionLoginActivity : ComponentActivity() {
 
     private lateinit var platform: Platform
     private var captured = false
+    private val handler = Handler(Looper.getMainLooper())
+
+    private val pollCookies = object : Runnable {
+        override fun run() {
+            if (captured) return
+            val sessionId = currentSessionId()
+            if (sessionId != null) {
+                captured = true
+                saveAndFinish(sessionId)
+            } else {
+                handler.postDelayed(this, 1500)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +57,7 @@ class SessionLoginActivity : ComponentActivity() {
         title = "Log in to ${platform.label}"
 
         val webView = WebView(this)
-        setContentView(webView)
+        setContentView(buildLayout(webView))
 
         val cookies = CookieManager.getInstance()
         cookies.setAcceptCookie(true)
@@ -46,19 +69,13 @@ class SessionLoginActivity : ComponentActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            // A non-WebView user agent — Instagram/TikTok block the default "; wv" UA.
+            // A non-WebView user agent — TikTok/Instagram/Google block the default "; wv" UA.
             userAgentString = MOBILE_UA
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (captured) return
-                val header = cookies.getCookie(cookieUrl(platform)) ?: return
-                val sessionId = extractCookie(header, "sessionid")
-                if (sessionId != null && sessionId.length > 8) {
-                    captured = true
-                    saveAndFinish(sessionId)
-                }
+                if (!captured) currentSessionId()?.let { captured = true; saveAndFinish(it) }
             }
         }
 
@@ -67,9 +84,62 @@ class SessionLoginActivity : ComponentActivity() {
         }
 
         webView.loadUrl(loginUrl(platform))
+        // Begin polling for the session cookie shortly after the page starts loading.
+        handler.postDelayed(pollCookies, 2500)
+    }
+
+    /** Top bar with a manual "I'm logged in" capture button, above the WebView. */
+    private fun buildLayout(webView: WebView): LinearLayout {
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#15151D"))
+            setPadding(dp(16), dp(10), dp(12), dp(10))
+        }
+        val title = TextView(this).apply {
+            text = "Log in to ${platform.label}"
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val done = Button(this).apply {
+            text = "I'm logged in"
+            setOnClickListener { captureNow() }
+        }
+        bar.addView(title)
+        bar.addView(done)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+    }
+
+    /** Read the current sessionid from the cookie store, or null if not logged in yet. */
+    private fun currentSessionId(): String? {
+        val cookies = CookieManager.getInstance()
+        cookies.flush()
+        val header = cookies.getCookie(cookieUrl(platform)) ?: return null
+        return extractCookie(header, "sessionid")
+    }
+
+    private fun captureNow() {
+        if (captured) return
+        val sessionId = currentSessionId()
+        if (sessionId != null) {
+            captured = true
+            saveAndFinish(sessionId)
+        } else {
+            Toast.makeText(this, "Not signed in yet — finish logging in first.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun saveAndFinish(sessionId: String) {
+        handler.removeCallbacks(pollCookies)
         lifecycleScope.launch {
             val app = applicationContext as TtlApp
             val result = runCatching { app.api.saveSession(platform, sessionId) }
@@ -91,6 +161,11 @@ class SessionLoginActivity : ComponentActivity() {
     private fun finishCancelled() {
         setResult(RESULT_CANCELED)
         finish()
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(pollCookies)
+        super.onDestroy()
     }
 
     companion object {
@@ -118,6 +193,6 @@ class SessionLoginActivity : ComponentActivity() {
                 .map { it.trim() }
                 .firstOrNull { it.startsWith("$name=") }
                 ?.substringAfter("=")
-                ?.takeIf { it.isNotBlank() }
+                ?.takeIf { it.length > 8 }
     }
 }
