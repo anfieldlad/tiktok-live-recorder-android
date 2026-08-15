@@ -155,6 +155,56 @@ class ApiClient(
         streamingClient.newCall(request)
     }
 
+    // --- Downloads as jobs: submit, then poll ---
+
+    /** Submit a job and return at once with something to poll. */
+    suspend fun submitDownload(platform: Platform, url: String): DownloadJob =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url("${requireBaseUrl()}${platform.path}?async=1")
+                .post(buildRequestJson(url).toRequestBody(JSON_MEDIA))
+                .applyApiKey()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw toApiException(response.code, text)
+                json.decodeFromString(DownloadJob.serializer(), text)
+            }
+        }
+
+    suspend fun listDownloads(): List<DownloadJob> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${requireBaseUrl()}/downloads")
+            .get()
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toApiException(response.code, text)
+            json.decodeFromString(ListSerializer(DownloadJob.serializer()), text)
+        }
+    }
+
+    /**
+     * Poll until the job reaches a terminal state.
+     *
+     * A dropped poll is not a failure — the server may be busy with two other
+     * fetches — so transient errors are swallowed and only the timeout gives up.
+     */
+    suspend fun awaitDownload(
+        id: String,
+        pollMs: Long = 2_000,
+        timeoutMs: Long = 900_000,
+    ): DownloadJob {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val job = runCatching { listDownloads().firstOrNull { it.id == id } }.getOrNull()
+            if (job != null && job.isTerminal) return job
+            delay(pollMs)
+        }
+        throw ApiException("This is taking longer than expected. Check the register on the web.")
+    }
+
     // --- Auto-record: standing orders for creators who are not live yet ---
 
     /** Every standing order, newest first as the server returns them. */

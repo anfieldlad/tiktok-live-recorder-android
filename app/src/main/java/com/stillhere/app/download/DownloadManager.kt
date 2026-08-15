@@ -36,7 +36,13 @@ class DownloadManager(
 
         return try {
             onProgress(DownloadProgress.Requesting(routed.platform))
-            val response = api.createDownload(routed.platform, routed.url)
+            // Submit and poll rather than holding one long request open. This
+            // is what lets the server delete its synchronous download door.
+            val submitted = api.submitDownload(routed.platform, routed.url)
+            val response = api.awaitDownload(submitted.id)
+            if (response.status == "failed") {
+                return fail(response.error ?: "The download failed.", onProgress)
+            }
 
             // The backend lists metadata sidecars (.json / .info.json) alongside the media.
             // We must NOT fetch those: the Instagram endpoint wipes the whole download once

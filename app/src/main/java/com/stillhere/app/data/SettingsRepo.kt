@@ -39,7 +39,9 @@ class SettingsRepo(private val context: Context) {
         val KEY_BASE_URL = stringPreferencesKey("base_url")
         val KEY_API_KEY = stringPreferencesKey("api_key")
 
-        // Pre-filled so the app works out of the box; change it in Settings anytime.
-        const val DEFAULT_BASE_URL = "https://app.dioriza.com/tiktok"
+        // Pre-filled so the app works out of the box; change it in Sessions
+        // anytime. Shipping on /stillhere is what lets the server drop the
+        // /tiktok nginx shim.
+        const val DEFAULT_BASE_URL = "https://app.dioriza.com/stillhere"
     }
 }
