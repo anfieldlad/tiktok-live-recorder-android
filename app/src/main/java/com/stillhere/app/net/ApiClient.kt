@@ -3,6 +3,8 @@ package com.stillhere.app.net
 import com.stillhere.app.data.SettingsRepo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -151,6 +153,65 @@ class ApiClient(
             .applyApiKey()
             .build()
         streamingClient.newCall(request)
+    }
+
+    // --- Auto-record: standing orders for creators who are not live yet ---
+
+    /** Every standing order, newest first as the server returns them. */
+    suspend fun listWatches(): List<WatchJob> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(requireBaseUrl() + "/watch-recordings")
+            .get()
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toApiException(response.code, text)
+            json.decodeFromString(ListSerializer(WatchJob.serializer()), text)
+        }
+    }
+
+    /** Place a standing order for a creator who is not live yet. */
+    suspend fun createWatch(username: String, durationSeconds: Int?): WatchJob =
+        withContext(Dispatchers.IO) {
+            val payload = buildJsonObject {
+                put("username", JsonPrimitive(username))
+                if (durationSeconds != null) put("duration", JsonPrimitive(durationSeconds))
+            }
+            val request = Request.Builder()
+                .url(requireBaseUrl() + "/watch-recordings")
+                .post(json.encodeToString(JsonObject.serializer(), payload).toRequestBody(JSON_MEDIA))
+                .applyApiKey()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) throw toApiException(response.code, text)
+                json.decodeFromString(WatchJob.serializer(), text)
+            }
+        }
+
+    suspend fun stopWatch(id: String): WatchJob = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${requireBaseUrl()}/watch-recordings/$id/stop")
+            .post("".toRequestBody(JSON_MEDIA))
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw toApiException(response.code, text)
+            json.decodeFromString(WatchJob.serializer(), text)
+        }
+    }
+
+    suspend fun deleteWatch(id: String) = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${requireBaseUrl()}/watch-recordings/$id")
+            .delete()
+            .applyApiKey()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw toApiException(response.code, response.body?.string().orEmpty())
+        }
     }
 
     private fun authStatusPath(platform: Platform): String =
