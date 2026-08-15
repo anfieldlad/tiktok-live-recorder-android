@@ -48,7 +48,10 @@ sunset). Captured on an Android 14 emulator.
 Platform is chosen automatically from the link's hostname. Each file is fetched exactly once — the
 Instagram endpoint deletes its server-side copy after serving. An optional `X-API-Key` header is sent when
 an API key is configured in Settings. For login, the app reads the `sessionid` cookie from the web-login
-WebView and posts it to the backend (TikTok stores that value under `session_ss`).
+WebView and posts it to the backend. Note the field name is historical: TikTok has no `session_ss`
+cookie, it authenticates on `sessionid`, and the backend stores whatever value it is given under every
+session cookie name the recorder might look for. Sending only `sessionid` is enough — verified against
+an age-gated live, where the full cookie jar behaved identically.
 
 ## Setup
 

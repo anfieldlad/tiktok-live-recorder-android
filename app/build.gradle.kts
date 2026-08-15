@@ -14,15 +14,18 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "com.ttldownloader.app"
+    namespace = "com.stillhere.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.ttldownloader.app"
+        applicationId = "com.stillhere.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4"
+        // A new identity starts a new line. The previous app was
+        // com.ttldownloader.app at versionCode 5 / 1.4; to Android this is a
+        // different app entirely, with no upgrade path and no shared data.
+        versionCode = 1
+        versionName = "1.0"
     }
 
     signingConfigs {

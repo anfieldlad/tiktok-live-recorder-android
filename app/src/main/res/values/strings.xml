@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TTL Downloader</string>
+    <string name="app_name">Still Here</string>
     <string name="download_channel_name">Downloads</string>
-    <string name="download_channel_desc">Shows progress while saving TikTok and Instagram media</string>
+    <string name="download_channel_desc">Shows progress while media is saving</string>
 </resources>
