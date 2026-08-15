@@ -10,7 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.stillhere.app.ui.AppRoot
 import com.stillhere.app.ui.AppViewModel
-import com.stillhere.app.ui.theme.LedgerTheme
+import com.stillhere.app.ui.ledger.LedgerTheme
 
 /**
  * Single Compose host. On every resume it checks the clipboard for a TikTok/Instagram link
