@@ -23,7 +23,10 @@ object Ledger {
     val CardEdge = Color(0xFFDCD2BE)
 
     val Ink = Color(0xFF23201B)
-    val Dim = Color(0xFF6E675C)
+    // Tracks the web's --dim, which was darkened to clear WCAG AA on both
+    // surfaces. #6E675C sat at exactly 4.5:1 on the board — passing with no
+    // headroom; this is 5.45 / 6.07.
+    val Dim = Color(0xFF635A4D)
     val Rule = Color(0xFFC9BFA8)
 
     /** Oxblood — the margin rule and the first platform's ink. */
