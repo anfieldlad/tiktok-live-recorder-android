@@ -1,4 +1,4 @@
-# TTL Downloader — Android
+# Still Here — Android
 
 A small, native Android client for the self-hosted [`ttl-downloader`](../ttl-downloader) backend. It
 sends TikTok and Instagram links to your own server (which runs `yt-dlp` / `gallery-dl`) and saves the
@@ -18,19 +18,23 @@ just hands it a URL and streams the result to the gallery. It's built for **pers
 | :---: | :---: | :---: |
 | <img src="docs/screenshots/settings.png" width="200" alt="Backend settings" /> | <img src="docs/screenshots/accounts.png" width="200" alt="Per-platform login status" /> | <img src="docs/screenshots/login.png" width="200" alt="In-app web login" /> |
 
-Dark-first theme with a violet→pink brand accent and platform-aware badges (TikTok cyan/red, Instagram
-sunset). Captured on an Android 14 emulator.
+> **These screenshots are of the previous dark-themed app and are out of date.**
+> 1.0 is *the Ledger*: cream paper on a ruled board, an oxblood margin rule,
+> rubber-stamp statuses and square corners throughout — the same design language
+> as the web app. Replace them after the next device run.
 
 ## Features
 
-- **Share-sheet import** — in TikTok or Instagram, tap **Share → TTL Downloader** and the download starts
+- **Share-sheet import** — in TikTok or Instagram, tap **Share → Still Here** and the download starts
   automatically. No copy-paste.
-- **Save to gallery** — videos land in `Movies/TTLDownloader`, images in `Pictures/TTLDownloader`, and
+- **Save to gallery** — videos land in `Movies/StillHere`, images in `Pictures/StillHere`, and
   show up in your gallery app. No storage permission needed (scoped storage / MediaStore).
 - **Clipboard auto-detect** — copy a TikTok/Instagram link, open the app, and a one-tap banner offers to
   download it.
 - **Foreground service** — downloads keep running (with a progress notification) even if you leave the app,
   which matters because server-side downloads can take 30–120s.
+- **Auto-record** — place a standing order for a creator who is not live yet; the server watches and
+  starts recording the moment they go live.
 - **Account login for private media** — sign in to TikTok/Instagram in a secure in-app web login. The app
   captures only the resulting `sessionid` cookie and stores it on *your* backend, which then uses it to
   download private or age-restricted posts. Your username/password never touch the app.

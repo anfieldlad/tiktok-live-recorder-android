@@ -19,8 +19,8 @@ data class SavedItem(
  * Writes downloaded bytes straight into the device gallery via MediaStore.
  *
  * On Android 10+ (the app's minSdk is 26, but scoped-storage inserts work from 29)
- * this needs no runtime storage permission. Videos land in `Movies/TTLDownloader`,
- * images in `Pictures/TTLDownloader`, so they show up in the gallery automatically.
+ * this needs no runtime storage permission. Videos land in `Movies/StillHere`,
+ * images in `Pictures/StillHere`, so they show up in the gallery automatically.
  */
 class MediaStoreSaver(private val context: Context) {
 
@@ -145,6 +145,6 @@ class MediaStoreSaver(private val context: Context) {
     }
 
     private companion object {
-        const val SUBFOLDER = "TTLDownloader"
+        const val SUBFOLDER = "StillHere"
     }
 }

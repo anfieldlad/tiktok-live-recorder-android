@@ -68,11 +68,14 @@ class DownloadService : Service() {
         nm.notify(NOTIFICATION_ID, buildNotification(title, text, ongoing))
     }
 
+    // Deliberately plain. These strings appear in the shade next to every other
+    // app on the phone, where the register's voice reads as a malfunction.
     private fun describe(progress: DownloadProgress): Triple<String, String, Boolean> = when (progress) {
-        is DownloadProgress.Resolving -> Triple("Working…", "Reading the link", true)
-        is DownloadProgress.Requesting -> Triple("Working…", "Asking the server for ${progress.platform.label} media", true)
-        is DownloadProgress.Saving -> Triple("Saving…", "File ${progress.index} of ${progress.total} to your gallery", true)
-        is DownloadProgress.Done -> Triple("Saved", "${progress.saved.size} file(s) added to your gallery", false)
+        is DownloadProgress.Resolving -> Triple("Saving", "Reading the link", true)
+        is DownloadProgress.Requesting -> Triple("Saving", "Saving from ${progress.platform.label}", true)
+        is DownloadProgress.Saving -> Triple("Saving", "File ${progress.index} of ${progress.total}", true)
+        is DownloadProgress.Done -> Triple("Saved to your gallery", "${progress.saved.size} file(s)", false)
+        // The server's own message — already written for someone who pasted a link.
         is DownloadProgress.Failed -> Triple("Download failed", progress.message, false)
     }
 
