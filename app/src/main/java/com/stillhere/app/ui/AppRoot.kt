@@ -26,7 +26,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stillhere.app.ui.ledger.Ledger
 import com.stillhere.app.ui.ledger.LedgerType
@@ -40,7 +42,7 @@ import com.stillhere.app.ui.watch.AutoRecordScreen
  * The three sections the web has, so both products share one mental model and
  * no feature is phone-only or web-only.
  */
-private enum class Destination(val label: String) {
+internal enum class Destination(val label: String) {
     Record("Record live"),
     Watch("Auto-record"),
     Save("Save post"),
@@ -79,7 +81,7 @@ fun AppRoot(viewModel: AppViewModel) {
 }
 
 @Composable
-private fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
+internal fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -92,7 +94,10 @@ private fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
             Spacer(Modifier.width(10.dp))
             Text(
                 "Still Here",
-                style = MaterialTheme.typography.displaySmall,
+                // Deliberately below the page headline's 26sp. A masthead that
+                // outweighs the headline inverts the hierarchy — the web keeps
+                // the same relationship at 25px against 40px.
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp),
                 color = Ledger.Ink,
                 modifier = Modifier.weight(1f),
             )
@@ -122,25 +127,29 @@ private fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
  * radius and an elevated surface, all three of which fight this design.
  */
 @Composable
-private fun LedgerNavBar(current: Destination, onSelect: (Destination) -> Unit) {
+internal fun LedgerNavBar(current: Destination, onSelect: (Destination) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Ledger.Board)) {
         HorizontalDivider(thickness = RuleWidth, color = Ledger.Rule)
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
+        Row(Modifier.fillMaxWidth()) {
             Destination.entries.forEach { entry ->
                 val active = entry == current
+                // weight(1f), not SpaceEvenly: each item would otherwise size to
+                // its own label, so the longest one decides whether three fit at
+                // all. Equal thirds cannot overflow at any width — the same fix
+                // the web's tab strip needed.
                 Column(
                     Modifier
+                        .weight(1f)
                         .clickable { onSelect(entry) }
-                        .padding(horizontal = 8.dp, vertical = 14.dp),
+                        .padding(horizontal = 4.dp, vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         entry.label.uppercase(),
-                        style = LedgerType.label,
+                        style = LedgerType.navLabel,
                         color = if (active) Ledger.SeriesInk else Ledger.Dim,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(6.dp))
                     Box(

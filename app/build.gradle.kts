@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.compose.screenshot)
 }
 
 // Release signing config is read from keystore.properties (git-ignored) if present.
@@ -66,6 +67,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Both this and the matching flag in gradle.properties are required by the
+    // screenshot plugin — it checks each one separately.
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 dependencies {
@@ -89,6 +94,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+    screenshotTestImplementation(libs.androidx.ui.tooling)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.test.ext.junit)

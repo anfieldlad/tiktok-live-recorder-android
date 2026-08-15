@@ -2,6 +2,7 @@ package com.stillhere.app.ui.ledger
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -44,6 +45,9 @@ fun Sheet(
         ) {}
         Column(
             Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+            // The rhythm is the primitive's job. Leaving it to callers means a
+            // single missing Spacer collapses the sheet into a wall of text.
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             content = content,
         )
     }

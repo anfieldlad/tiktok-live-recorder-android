@@ -56,26 +56,22 @@ fun AutoRecordScreen(viewModel: AppViewModel) {
         item {
             Sheet {
                 Eyebrow("Entry — standing order · TikTok")
-                Spacer(Modifier.height(10.dp))
                 Text(
-                    "Wait for a broadcast\nthat hasn't started",
+                    "Wait for a broadcast that hasn’t started",
                     style = MaterialTheme.typography.headlineMedium,
                     color = Ledger.Ink,
                 )
-                Spacer(Modifier.height(10.dp))
                 Text(
                     "Capture begins the moment they go live.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Ledger.Dim,
                 )
-                Spacer(Modifier.height(20.dp))
                 LedgerField(
                     label = "Subject — username or live URL",
                     value = username,
                     onValueChange = viewModel::onWatchUsernameChange,
                     placeholder = "@example_creator",
                 )
-                Spacer(Modifier.height(16.dp))
                 LedgerField(
                     label = "Duration in seconds — optional",
                     value = duration,
@@ -83,10 +79,8 @@ fun AutoRecordScreen(viewModel: AppViewModel) {
                     placeholder = "blank = until the live ends",
                     keyboardType = KeyboardType.Number,
                 )
-                Spacer(Modifier.height(20.dp))
                 LedgerButton("Place the order", viewModel::placeWatchOrder)
                 if (notice.isNotBlank()) {
-                    Spacer(Modifier.height(14.dp))
                     Text(notice, style = LedgerType.label, color = Ledger.Dim)
                 }
             }
@@ -111,14 +105,12 @@ fun AutoRecordScreen(viewModel: AppViewModel) {
                         color = Ledger.Ink,
                     )
                     if (job.lastMessage.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
                         Text(
                             job.lastMessage,
                             style = MaterialTheme.typography.bodyMedium,
                             color = Ledger.Dim,
                         )
                     }
-                    Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (job.isActive) {
                             LedgerButton("Stop", { viewModel.stopWatch(job.id) }, quiet = true)

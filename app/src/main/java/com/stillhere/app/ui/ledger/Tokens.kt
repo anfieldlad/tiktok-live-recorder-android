@@ -29,6 +29,12 @@ object Ledger {
     val Dim = Color(0xFF635A4D)
     val Rule = Color(0xFFC9BFA8)
 
+    /**
+     * Placeholders sit a step lighter than labels but must still be read.
+     * They used to be drawn in [Rule], a hairline colour at about 1.9:1.
+     */
+    val Placeholder = Color(0xFF736A5C)
+
     /** Oxblood — the margin rule and the first platform's ink. */
     val SeriesInk = Color(0xFF7B2D26)
 
@@ -37,7 +43,9 @@ object Ledger {
 
     /** The three rubber stamps. */
     val Filed = Color(0xFF2F6B4F)
-    val Pending = Color(0xFF8A7231)
+    // The Queued/Working/Watching stamp — the one on screen while anything
+    // is happening, and the only token that failed AA on card at 4.15:1.
+    val Pending = Color(0xFF78601A)
     val FailedInk = Color(0xFF9B2C22)
 }
 

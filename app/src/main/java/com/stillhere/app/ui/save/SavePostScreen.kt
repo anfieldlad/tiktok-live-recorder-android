@@ -82,20 +82,17 @@ fun SavePostScreen(viewModel: AppViewModel) {
         item {
             Sheet {
                 Eyebrow("Entry — saved post")
-                Spacer(Modifier.height(10.dp))
                 Text(
-                    "Save a post\nbefore it's gone",
+                    "Save a post before it’s gone",
                     style = MaterialTheme.typography.headlineMedium,
                     color = Ledger.Ink,
                 )
-                Spacer(Modifier.height(20.dp))
                 LedgerField(
                     label = "Link — TikTok or Instagram",
                     value = url,
                     onValueChange = viewModel::onUrlInputChange,
                     placeholder = "tiktok.com/@… or instagram.com/p/…",
                 )
-                Spacer(Modifier.height(20.dp))
                 LedgerButton("Save post", viewModel::downloadFromInput, enabled = url.isNotBlank())
             }
         }
@@ -114,7 +111,6 @@ fun SavePostScreen(viewModel: AppViewModel) {
                         style = MaterialTheme.typography.titleMedium,
                         color = Ledger.Ink,
                     )
-                    Spacer(Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         LedgerButton("Save it", { viewModel.startDownload(suggestion) })
                         LedgerButton("Dismiss", viewModel::dismissClipboardSuggestion, quiet = true)
@@ -135,13 +131,11 @@ fun SavePostScreen(viewModel: AppViewModel) {
                 ) {
                     Text(detailOf(progress), style = MaterialTheme.typography.bodyLarge, color = Ledger.Ink)
                     if (progress is DownloadProgress.Failed) {
-                        Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             LedgerButton("Try again", viewModel::retry)
                             LedgerButton("Dismiss", viewModel::dismissActiveDownload, quiet = true)
                         }
                     } else if (progress is DownloadProgress.Done) {
-                        Spacer(Modifier.height(14.dp))
                         LedgerButton("Dismiss", viewModel::dismissActiveDownload, quiet = true)
                     }
                 }
@@ -173,7 +167,6 @@ private fun HistoryCard(entry: HistoryEntry) {
         stamp = { Stamp("Filed", StampKind.Filed) },
     ) {
         Text(shortLink(entry.url), style = MaterialTheme.typography.titleMedium, color = Ledger.Ink)
-        Spacer(Modifier.height(6.dp))
         Text(
             "${entry.fileCount} in your gallery · ${relativeTime(entry.timestamp)}",
             style = LedgerType.label,

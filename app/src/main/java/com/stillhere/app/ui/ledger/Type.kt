@@ -34,12 +34,39 @@ object LedgerType {
         fontWeight = FontWeight.Normal,
     )
 
-    /** The stamp face: smaller, tighter, and always uppercase at the call site. */
+    /** The stamp face: tighter than a label, always uppercase at the call site. */
     val stamp = TextStyle(
         fontFamily = mono,
-        fontSize = 10.sp,
-        lineHeight = 12.sp,
-        letterSpacing = 1.4.sp,
+        fontSize = 11.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 1.2.sp,
+        fontWeight = FontWeight.Normal,
+    )
+
+    /**
+     * The nav strip: the label face with tracking eased off.
+     *
+     * Three labels share the width of a phone, and tracking is what gives way
+     * — never the type size, which is the thing that has to stay legible.
+     */
+    /**
+     * The eyebrow: the longest mono string on any screen
+     * ("Entry — standing order · TikTok"), so it is tracked tighter than a
+     * label to survive a 320dp phone on one line.
+     */
+    val eyebrow = TextStyle(
+        fontFamily = mono,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.8.sp,
+        fontWeight = FontWeight.Normal,
+    )
+
+    val navLabel = TextStyle(
+        fontFamily = mono,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.6.sp,
         fontWeight = FontWeight.Normal,
     )
 }

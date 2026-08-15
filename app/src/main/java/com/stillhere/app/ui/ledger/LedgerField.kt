@@ -44,7 +44,7 @@ fun LedgerField(
             modifier = Modifier.fillMaxWidth(),
             decorationBox = { inner ->
                 if (value.isEmpty() && placeholder.isNotEmpty()) {
-                    Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = Ledger.Rule)
+                    Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = Ledger.Placeholder)
                 }
                 inner()
             },

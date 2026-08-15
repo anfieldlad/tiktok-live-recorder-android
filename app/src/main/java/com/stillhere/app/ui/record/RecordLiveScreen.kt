@@ -52,26 +52,22 @@ fun RecordLiveScreen(viewModel: AppViewModel) {
         item {
             Sheet {
                 Eyebrow("Entry — live capture · TikTok")
-                Spacer(Modifier.height(10.dp))
                 Text(
-                    "Record a broadcast\nbefore it's gone",
+                    "Record a broadcast before it’s gone",
                     style = MaterialTheme.typography.headlineMedium,
                     color = Ledger.Ink,
                 )
-                Spacer(Modifier.height(10.dp))
                 Text(
                     "The stream goes phone-direct — nothing is kept on the server.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Ledger.Dim,
                 )
-                Spacer(Modifier.height(20.dp))
                 LedgerField(
                     label = "Subject — username or live URL",
                     value = username,
                     onValueChange = viewModel::onLiveUsernameChange,
                     placeholder = "@example_creator",
                 )
-                Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LedgerButton(
                         "Begin capture",
@@ -115,7 +111,7 @@ fun RecordLiveScreen(viewModel: AppViewModel) {
             is LiveState.Starting -> item {
                 EntryCard(register = "This one", live = true, stamp = { Stamp("Working", StampKind.Pending) }) {
                     Text(
-                        "Resolving @${state.username}'s stream",
+                        "Resolving @${state.username}’s stream",
                         style = MaterialTheme.typography.titleMedium,
                         color = Ledger.Ink,
                     )
@@ -131,7 +127,6 @@ fun RecordLiveScreen(viewModel: AppViewModel) {
                         style = MaterialTheme.typography.titleMedium,
                         color = Ledger.Ink,
                     )
-                    Spacer(Modifier.height(14.dp))
                     LedgerButton("Dismiss", viewModel::dismissLive, quiet = true)
                 }
             }
@@ -139,7 +134,6 @@ fun RecordLiveScreen(viewModel: AppViewModel) {
             is LiveState.Failed -> item {
                 EntryCard(register = "This one", stamp = { Stamp("Failed", StampKind.Failed) }) {
                     Text(state.message, style = MaterialTheme.typography.bodyMedium, color = Ledger.Ink)
-                    Spacer(Modifier.height(14.dp))
                     LedgerButton("Dismiss", viewModel::dismissLive, quiet = true)
                 }
             }
@@ -164,9 +158,7 @@ private fun RecordingCard(state: LiveState.Recording, onStop: () -> Unit) {
 
     EntryCard(register = "@${state.username}", live = true, stamp = { Stamp("Recording", StampKind.Pending) }) {
         Text(formatElapsed(seconds), style = MaterialTheme.typography.headlineMedium, color = Ledger.Ink)
-        Spacer(Modifier.height(6.dp))
         Text("${humanBytes(state.bytes)} saved", style = LedgerType.label, color = Ledger.Dim)
-        Spacer(Modifier.height(14.dp))
         LedgerButton("Stop and save", onStop, danger = true)
     }
 }

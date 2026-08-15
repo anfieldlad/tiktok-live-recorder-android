@@ -43,13 +43,21 @@ fun EntryCard(
             .background(Ledger.Card)
             .border(RuleWidth, Ledger.CardEdge, SquareCorners),
     ) {
+        // The rule always carries the series ink — that is what makes an
+        // Instagram entry read as a different series, exactly as
+        // `[data-series]` does on the web. `live` widens it rather than
+        // changing its colour; the web animates it, which costs more than it
+        // says in a phone list.
         Column(
             Modifier
-                .width(3.dp)
+                .width(if (live) 5.dp else 3.dp)
                 .fillMaxHeight()
-                .background(if (live) ink else Ledger.Rule),
+                .background(ink),
         ) {}
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
+        Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -58,7 +66,6 @@ fun EntryCard(
                 Text(register, style = LedgerType.label, color = Ledger.Dim)
                 stamp?.invoke()
             }
-            Spacer(Modifier.height(8.dp))
             content()
         }
     }
