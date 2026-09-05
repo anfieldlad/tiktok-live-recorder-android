@@ -41,6 +41,12 @@ object Ledger {
     /** The second ink, for Instagram entries. */
     val SeriesInkAlt = Color(0xFF3E5C4B)
 
+    // A third ink for YouTube. Named for its platform where the two above are
+    // not, because "Alt2" would say nothing. Deliberately not a red: SeriesInk
+    // is already a dark red-brown, and two reds would not tell the platforms
+    // apart at the width of a card's edge.
+    val SeriesInkYouTube = Color(0xFF3F4A6B)
+
     /** The three rubber stamps. */
     val Filed = Color(0xFF2F6B4F)
     // The Queued/Working/Watching stamp — the one on screen while anything
@@ -67,4 +73,5 @@ val RuleWidth = 1.5.dp
 fun seriesInk(platform: Platform): Color = when (platform) {
     Platform.TIKTOK -> Ledger.SeriesInk
     Platform.INSTAGRAM -> Ledger.SeriesInkAlt
+    Platform.YOUTUBE -> Ledger.SeriesInkYouTube
 }

@@ -10,6 +10,9 @@ import kotlinx.serialization.Serializable
 enum class Platform(val path: String, val label: String) {
     TIKTOK("/downloads", "TikTok"),
     INSTAGRAM("/instagram/downloads", "Instagram"),
+    // The same endpoint as TikTok on purpose: the server routes on the link's
+    // hostname, so YouTube never needed an address of its own.
+    YOUTUBE("/downloads", "YouTube"),
 }
 
 /**
@@ -65,6 +68,7 @@ data class DownloadJob(
         get() = when (platform) {
             "instagram" -> Platform.INSTAGRAM
             "tiktok_post" -> Platform.TIKTOK
+            "youtube" -> Platform.YOUTUBE
             else -> null
         }
 }

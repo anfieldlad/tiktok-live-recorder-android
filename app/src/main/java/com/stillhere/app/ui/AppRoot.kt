@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -86,6 +90,11 @@ internal fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .background(Ledger.Board)
+            // enableEdgeToEdge draws us behind the status bar, and a Material3
+            // Scaffold insets only its content — a topBar must inset itself.
+            // Background first, padding second, so the paper still runs under
+            // the clock instead of leaving a bare strip above the masthead.
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 16.dp)
             .padding(top = 12.dp, bottom = 10.dp),
     ) {
@@ -128,7 +137,12 @@ internal fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
  */
 @Composable
 internal fun LedgerNavBar(current: Destination, onSelect: (Destination) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Ledger.Board)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Ledger.Board)
+            .windowInsetsPadding(WindowInsets.navigationBars),
+    ) {
         HorizontalDivider(thickness = RuleWidth, color = Ledger.Rule)
         Row(Modifier.fillMaxWidth()) {
             Destination.entries.forEach { entry ->

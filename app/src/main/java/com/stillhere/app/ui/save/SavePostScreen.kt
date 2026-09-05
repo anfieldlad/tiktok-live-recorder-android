@@ -88,10 +88,10 @@ fun SavePostScreen(viewModel: AppViewModel) {
                     color = Ledger.Ink,
                 )
                 LedgerField(
-                    label = "Link — TikTok or Instagram",
+                    label = "Link — TikTok, Instagram or YouTube",
                     value = url,
                     onValueChange = viewModel::onUrlInputChange,
-                    placeholder = "tiktok.com/@… or instagram.com/p/…",
+                    placeholder = "tiktok.com/@… · instagram.com/p/… · youtube.com/watch?v=…",
                 )
                 LedgerButton("Save post", viewModel::downloadFromInput, enabled = url.isNotBlank())
             }

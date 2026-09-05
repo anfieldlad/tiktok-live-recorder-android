@@ -18,6 +18,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.stillhere.app.StillHereApp
 import com.stillhere.app.net.Platform
 import kotlinx.coroutines.launch
@@ -114,8 +116,18 @@ class SessionLoginActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            // targetSdk 36 means Android 15+ draws this activity edge to edge, so
+            // the bar would otherwise sit under the clock. The bar keeps its own
+            // colour behind the status bar; only its padding grows.
+            setBackgroundColor(Color.parseColor("#15151D"))
             addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            ViewCompat.setOnApplyWindowInsetsListener(this) { root, windowInsets ->
+                val bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                bar.setPadding(dp(16), dp(10) + bars.top, dp(12), dp(10))
+                root.setPadding(0, 0, 0, bars.bottom)
+                windowInsets
+            }
         }
     }
 
@@ -180,12 +192,19 @@ class SessionLoginActivity : ComponentActivity() {
         private fun loginUrl(platform: Platform): String = when (platform) {
             Platform.TIKTOK -> "https://www.tiktok.com/login"
             Platform.INSTAGRAM -> "https://www.instagram.com/accounts/login/"
+            // Unreachable: this activity is only ever started from the Sessions
+            // drawer, which offers the two platforms that keep a session.
+            Platform.YOUTUBE -> error(NO_LOGIN_FOR_YOUTUBE)
         }
 
         private fun cookieUrl(platform: Platform): String = when (platform) {
             Platform.TIKTOK -> "https://www.tiktok.com"
             Platform.INSTAGRAM -> "https://www.instagram.com"
+            Platform.YOUTUBE -> error(NO_LOGIN_FOR_YOUTUBE)
         }
+
+        private const val NO_LOGIN_FOR_YOUTUBE =
+            "YouTube is fetched anonymously and has no login to capture"
 
         /** Pull a single cookie value out of a "a=1; b=2" cookie header. */
         private fun extractCookie(header: String, name: String): String? =

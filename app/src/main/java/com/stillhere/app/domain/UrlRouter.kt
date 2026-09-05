@@ -30,6 +30,8 @@ object UrlRouter {
             host == "tiktok.com" || host.endsWith(".tiktok.com") -> Platform.TIKTOK
             host == "instagram.com" || host.endsWith(".instagram.com") ||
                 host == "instagr.am" || host == "www.instagr.am" -> Platform.INSTAGRAM
+            host == "youtube.com" || host.endsWith(".youtube.com") ||
+                host == "youtu.be" -> Platform.YOUTUBE
             else -> null
         }
     }

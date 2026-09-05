@@ -264,11 +264,19 @@ class ApiClient(
         }
     }
 
-    private fun authStatusPath(platform: Platform): String =
-        if (platform == Platform.TIKTOK) "/auth/status" else "/instagram/auth/status"
+    // Exhaustive `when`, not `if TIKTOK else instagram`. With a third platform
+    // that fallthrough silently pointed YouTube at Instagram's auth endpoints.
+    private fun authStatusPath(platform: Platform): String = when (platform) {
+        Platform.TIKTOK -> "/auth/status"
+        Platform.INSTAGRAM -> "/instagram/auth/status"
+        Platform.YOUTUBE -> throw ApiException(YOUTUBE_HAS_NO_SESSION)
+    }
 
-    private fun authCookiesPath(platform: Platform): String =
-        if (platform == Platform.TIKTOK) "/auth/tiktok-cookies" else "/instagram/auth/cookies"
+    private fun authCookiesPath(platform: Platform): String = when (platform) {
+        Platform.TIKTOK -> "/auth/tiktok-cookies"
+        Platform.INSTAGRAM -> "/instagram/auth/cookies"
+        Platform.YOUTUBE -> throw ApiException(YOUTUBE_HAS_NO_SESSION)
+    }
 
     private fun authSaveBody(platform: Platform, sessionId: String): String {
         // We send the `sessionid` cookie either way. TikTok has no `session_ss`
@@ -277,7 +285,11 @@ class ApiClient(
         // every session cookie name the recorder might need. Instagram's endpoint
         // names it `sessionid`. Built as JSON rather than string-concatenated so a
         // value containing a quote cannot corrupt the body.
-        val field = if (platform == Platform.TIKTOK) "session_ss" else "sessionid"
+        val field = when (platform) {
+            Platform.TIKTOK -> "session_ss"
+            Platform.INSTAGRAM -> "sessionid"
+            Platform.YOUTUBE -> throw ApiException(YOUTUBE_HAS_NO_SESSION)
+        }
         val body = buildJsonObject { put(field, JsonPrimitive(sessionId)) }
         return json.encodeToString(JsonObject.serializer(), body)
     }
@@ -313,6 +325,10 @@ class ApiClient(
     }
 
     private companion object {
+        // Unreachable through the UI: YouTube is fetched anonymously and the
+        // Sessions drawer only ever offers TikTok and Instagram.
+        const val YOUTUBE_HAS_NO_SESSION = "YouTube has no stored session"
+
         val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
         private val DISPOSITION_FILENAME =

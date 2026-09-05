@@ -43,9 +43,10 @@ class UrlRouterTest {
 
     @Test
     fun rejectsUnsupportedHosts() {
-        assertNull(UrlRouter.platformFor("https://youtube.com/watch?v=1"))
+        assertNull(UrlRouter.platformFor("https://example.com/video/1"))
         // Guards against naive substring matching (host is the imposter domain).
         assertNull(UrlRouter.platformFor("https://tiktok.com.evil.example/x"))
+        assertNull(UrlRouter.platformFor("https://youtube.com.evil.example/watch?v=1"))
     }
 
     @Test
@@ -55,5 +56,17 @@ class UrlRouterTest {
         assertEquals("https://vm.tiktok.com/ZMabc/", routed?.url)
         assertTrue(UrlRouter.isSupported("https://www.instagram.com/reel/Abc/"))
         assertNull(UrlRouter.route("https://example.com/x"))
+    }
+
+    @Test
+    fun routesYoutubeLinks() {
+        for (url in listOf(
+            "https://www.youtube.com/watch?v=abc123",
+            "https://youtube.com/shorts/abc123",
+            "https://m.youtube.com/watch?v=abc123",
+            "https://youtu.be/abc123",
+        )) {
+            assertEquals(Platform.YOUTUBE, UrlRouter.platformFor(url))
+        }
     }
 }
