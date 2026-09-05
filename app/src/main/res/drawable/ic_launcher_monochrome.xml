@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!--
+      Themed-icon layer: the same mark in one ink. The launcher tints this itself,
+      so the gradients of the colour foreground would only mud it.
+    -->
+    <path android:pathData="M54,32.625 a21.375,21.375 0 1,0 0,42.75 a21.375,21.375 0 1,0 0,-42.75"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="6.75" />
+    <path android:pathData="M54,46.125 a7.875,7.875 0 1,0 0,15.75 a7.875,7.875 0 1,0 0,-15.75"
+        android:fillColor="#FF000000" />
+    <path android:pathData="M66.94,38.81 c5.4,3.15 9,9 9,15.75 c0,10.24 -8.33,18.56 -18.56,18.56"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3.375"
+        android:strokeLineCap="round" />
+</vector>

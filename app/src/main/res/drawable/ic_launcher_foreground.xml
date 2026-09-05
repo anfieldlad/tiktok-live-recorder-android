@@ -1,27 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Bold, rounded "download" arrow into a tray, centered in the safe zone. -->
-    <!-- Arrow stem -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="11"
+    <!--
+      The Still Here mark from app/static/favicon.svg on the web, scaled from that
+      64-unit canvas into the adaptive icon's 72dp safe zone (x' = 18 + 1.125x)
+      so nothing is clipped by a round or squircle mask.
+    -->
+    <!-- Ring -->
+    <path android:pathData="M54,32.625 a21.375,21.375 0 1,0 0,42.75 a21.375,21.375 0 1,0 0,-42.75"
+        android:strokeWidth="6.75">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="32.625"
+                android:startY="32.625"
+                android:endX="75.375"
+                android:endY="75.375">
+                <item android:offset="0" android:color="#FFCB5B37" />
+                <item android:offset="1" android:color="#FF17655D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Centre -->
+    <path android:pathData="M54,46.125 a7.875,7.875 0 1,0 0,15.75 a7.875,7.875 0 1,0 0,-15.75"
+        android:fillColor="#FFCB5B37" />
+    <!-- The arc that keeps listening -->
+    <path android:pathData="M66.94,38.81 c5.4,3.15 9,9 9,15.75 c0,10.24 -8.33,18.56 -18.56,18.56"
+        android:strokeColor="#FF17655D"
+        android:strokeWidth="3.375"
         android:strokeLineCap="round"
-        android:pathData="M54,31 L54,61" />
-    <!-- Arrowhead -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="11"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M39,49 L54,65 L69,49" />
-    <!-- Tray / baseline -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="10"
-        android:strokeLineCap="round"
-        android:pathData="M38,80 L70,80" />
+        android:strokeAlpha="0.9" />
 </vector>
