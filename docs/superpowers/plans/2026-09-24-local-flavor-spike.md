@@ -188,3 +188,122 @@ routed through the existing server backend even in the `local` flavor.
   the throwaway instrumented test from the brief (used verbatim).
 - `local.properties` — created (gitignored) to point Gradle at the Android SDK
   in this worktree; not part of the spike's git history in any meaningful way.
+
+## Native TikTok spike (Task 1b)
+
+Throwaway branch `spike/tiktok-native` off `claude/android-backend-dependencies-18926e`.
+Only this notes section is kept; the branch itself is never merged. Same device as
+above: emulator `emulator-5554` (x86_64, API 34).
+
+Task 1a showed yt-dlp can't read TikTok on Android because it needs an impersonate
+target (a browser-realistic TLS/HTTP fingerprint) that isn't available on Android.
+This spike asks the opposite question: can a plain Kotlin `OkHttpClient` — which rides
+on Android's own TLS stack (Conscrypt/BoringSSL), not Python's OpenSSL — read a public
+TikTok video, a photo post, and a short link, with no impersonation at all?
+
+**Result: yes.** Approach A (plain OkHttp) passed on the first real request. Approach B
+(hidden WebView) was never attempted — per the brief's "stop after the first approach
+that passes" rule.
+
+### What differed from the brief
+
+The brief's exact JSON path —
+`__UNIVERSAL_DATA_FOR_REHYDRATION__` → `__DEFAULT_SCOPE__["webapp.video-detail"]` →
+`itemInfo.itemStruct` — is **not** what a cookie-less first request gets today:
+
+- On a fresh `OkHttpClient` with no prior TikTok cookies, `__DEFAULT_SCOPE__` in the
+  rehydration script only contains `webapp.reflow.*` keys (`webapp.reflow.global.uiStrategy.common`,
+  `webapp.reflow.video.operationSettings`, `webapp.reflow.global.queryData`, etc.) — no
+  item data at all, and no key containing "video-detail" or "photo-detail".
+- The real item data on that exact same page response instead lives in a **separate**
+  `<script id="api-data" type="application/json">` tag, shaped
+  `{"videoDetail":{"statusCode":0,"statusMessage":"","itemInfo":{"itemStruct":{...}}}}`.
+  This holds for the `/photo/` URL too — TikTok uses the key `"videoDetail"` even on a
+  photo post; there is no separate `"photoDetail"` key.
+- A session that already carries TikTok cookies (built up by ordinary browsing, checked
+  from the Claude Browser pane with `document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__')`)
+  **does** get the classic shape: `__DEFAULT_SCOPE__["webapp.video-detail"]` present with
+  `itemInfo.itemStruct` embedded directly, no `api-data` tag needed. So which of the two
+  shapes a request gets is tied to cookie/session state, not fixed — production code has
+  to try both, in order.
+- In the `api-data` shape, `itemStruct.video` has **no `bitrateInfo` array at all** — just
+  direct `playAddr` and `downloadAddr` string fields. Full key set observed: `id, height,
+  width, duration, cover, originCover, dynamicCover, playAddr, downloadAddr, shareCover,
+  reflowCover, subtitleInfos, zoomCover`. So the brief's "pick the highest `Bitrate` from
+  `bitrateInfo[*]`" step never fired in either video test; `video.playAddr` was used
+  directly both times. (`bitrateInfo`/`PlayAddr`/`Bitrate` may still appear in the classic
+  cookie-primed shape or the native app API — not exercised here.)
+- `SIGI_STATE` was never seen on any fetch in this spike.
+
+### Test URLs (all confirmed live 2026-09-24 via the Claude Browser pane before use)
+
+- Video 1: `https://www.tiktok.com/@hankgreen1/video/7047596209028074758` (reused from Task 1a)
+- Video 2: `https://www.tiktok.com/@pokemonlife22/video/7059698374567611694` (reused from Task 1a)
+- Photo post: `https://www.tiktok.com/@celinedion/photo/7603075722235694344` — found via a
+  Google search for `site:tiktok.com "/photo/"`; yt-dlp's `tiktok.py` `_TESTS` has **no**
+  photo-post examples at all (grepped for `imagePost`/`/photo/` — nothing).
+- Short link: `https://vm.tiktok.com/ZSqpTT3rU/` — found via a Google search restricted to
+  the past week. All three short-link URLs in yt-dlp's `_TESTS`
+  (`tiktok.com/t/ZTRC5xgJp`, `vm.tiktok.com/ZTR45GpSF`, `vt.tiktok.com/ZSe4FqkKd`) are dead:
+  the redirect lands on the bare homepage `https://www.tiktok.com/?_r=1` with **HTTP 200**,
+  not a 404. A dead/expired short code cannot be detected from status code alone —
+  production code must check whether the final resolved URL's path actually contains
+  `/video/` or `/photo/`.
+
+### Results
+
+| Check | URL | Approach | Result | Timing |
+|---|---|---|---|---|
+| Video 1 | `.../@hankgreen1/video/7047596209028074758` | A (OkHttp) | **PASS** — 5,076,682 bytes, bytes 4-7 = `ftyp` (isom brand) | page 1.35s, media 2.86s |
+| Video 2 | `.../@pokemonlife22/video/7059698374567611694` | A (OkHttp) | **PASS** — 658,136 bytes, bytes 4-7 = `ftyp` (isom brand) | page 1.91s, media 1.08s |
+| Photo post | `.../@celinedion/photo/7603075722235694344` | A (OkHttp) | **PASS** — 4 images, all JPEG (`ff d8 ff e0`/JFIF) | page + 4 images ≈ 2s total |
+| Short link | `vm.tiktok.com/ZSqpTT3rU/` | A (OkHttp) | **PASS** — resolved to `.../video/7683191205836082435` | one redirect hop, instant |
+| Media fetch without cookies | video 1's `playAddr`, fresh cookie-less client | A (OkHttp) | **FAIL** — HTTP 403 | — |
+
+### Cookies
+
+The first page GET (no prior cookies) sets: `ttwid`, `tt_csrf_token`, `tt_chain_token`,
+`msToken`. The video CDN (`v16-webapp-prime.tiktok.com`; the signed URL's query string
+includes `tk=tt_chain_token`) **requires** these — refetching the exact same signed
+`playAddr` URL with a cookie-less `OkHttpClient` returned **HTTP 403** instead of video
+bytes, while the cookie-bearing client got the full 5 MB / 658 KB files. The photo CDN
+(`p16-common-sign.tiktokcdn.com`) URLs are separately pre-signed (`x-expires`/
+`x-signature` query params, no `tk=` reference) and were only exercised with the
+cookie-bearing client in this spike — whether they also need cookies wasn't isolated and
+should be checked before ever dropping the cookie jar from the photo path.
+
+### Bot-check note
+
+Loading the photo post in a full browser (Claude's browser pane, with existing TikTok
+cookies) triggered a "drag the slider to fit the puzzle" CAPTCHA overlay. That is a
+client-side JS challenge painted on top of an already-fully-loaded page — it did not stop
+OkHttp (no JS engine at all) from getting a normal HTTP 200 with the full item JSON on
+every single request in this spike (2 videos, 1 photo post, 1 short link, twice each for
+the video pages). This lines up with the Task 1a finding: yt-dlp's TikTok failure
+("Unable to extract webpage video data") was about TLS/HTTP fingerprinting requiring an
+impersonate target, not this visual puzzle layer — Android's native OkHttp/Conscrypt
+stack produces a fingerprint TikTok's webapp serves real data to without any challenge.
+
+### Recommendation for a production `TikTokEngine`
+
+Use plain OkHttp (Approach A) as the sole extraction path; no WebView fallback is needed.
+Request sequence: **(1)** GET the video/photo page URL with a desktop-Chrome-on-Android
+UA plus `Accept`/`Accept-Language` headers, using a per-`TikTokEngine`-instance in-memory
+`CookieJar` that matches cookies by domain via `Cookie.matches()` (not exact host), so
+cookies set on `www.tiktok.com` also ride along to the CDN hosts. **(2)** Extract
+`itemStruct` by trying, in order: `__UNIVERSAL_DATA_FOR_REHYDRATION__` →
+`__DEFAULT_SCOPE__` → the first key ending in `-detail` that isn't a `reflow` key →
+`itemInfo.itemStruct`; if that's absent, fall back to `<script id="api-data">` → the
+first top-level key ending in `Detail` → `itemInfo.itemStruct`. Both shapes were observed
+live from the same TikTok webapp depending on cookie state, so both must be supported.
+**(3)** For video, prefer `video.bitrateInfo[*].PlayAddr.UrlList[*]` sorted by `Bitrate`
+when present, else fall back directly to `video.playAddr`, else `video.downloadAddr`; for
+photo, iterate `imagePost.images[*].imageURL.urlList[0]`. **(4)** Fetch the chosen media
+URL(s) with the SAME cookie jar and a `Referer: https://www.tiktok.com/` header — cookies
+are not optional for video; a cookie-less fetch of the identical signed URL gets HTTP
+403. **(5)** For a short link, GET it with the same client and let OkHttp follow
+redirects automatically (its default), then check the final URL's *path* for `/video/`
+or `/photo/` rather than trusting the HTTP status — an expired short code silently 200s
+to the bare homepage. Keep tikwm.com wired as the fallback for whatever TikTok breaks
+next (e.g. if the `api-data` script is ever removed entirely), but this spike found no
+case where a live public video or photo post URL failed to extract on a real device.
