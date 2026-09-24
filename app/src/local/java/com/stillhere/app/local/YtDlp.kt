@@ -42,24 +42,31 @@ class YtDlp(private val context: Context) {
 
     suspend fun run(url: String, options: List<YtDlpOption>) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            ensureInit()
             val request = YoutubeDLRequest(url)
             options.forEach { option ->
                 val value = option.value
                 if (value == null) request.addOption(option.name) else request.addOption(option.name, value)
             }
             try {
+                ensureInit()
                 YoutubeDL.getInstance().execute(request)
             } catch (e: YoutubeDLException) {
                 throw EngineFailure(e.message.orEmpty())
+            } catch (e: YoutubeDL.CanceledException) {
+                throw EngineFailure("yt-dlp was stopped before it finished.")
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw EngineFailure("yt-dlp was interrupted before it finished.")
             }
         }
     }
 
-    fun version(): String? = runCatching {
-        ensureInit()
-        YoutubeDL.getInstance().versionName(context)
-    }.getOrNull()
+    suspend fun version(): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            ensureInit()
+            YoutubeDL.getInstance().versionName(context)
+        }.getOrNull()
+    }
 
     suspend fun updateIfIdle(): UpdateOutcome = withContext(Dispatchers.IO) {
         if (!mutex.tryLock()) return@withContext UpdateOutcome.Busy

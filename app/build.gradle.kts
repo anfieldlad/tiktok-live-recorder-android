@@ -97,6 +97,9 @@ android {
         abi {
             // Splits cannot be set per flavor, and the server flavor has no
             // native code to split. So split only when a Local build was asked for.
+            // A task name without "Local" (a bare `assemble` or `build`) packages
+            // Local unsplit, so always build Local with its own task
+            // (assembleLocalDebug, assembleLocalRelease).
             isEnable = gradle.startParameter.taskNames.any { it.contains("Local") }
             reset()
             // x86_64 is for the emulator; phones want arm64-v8a.
