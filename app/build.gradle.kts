@@ -108,6 +108,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
+    "testLocalImplementation"(libs.okhttp.mockwebserver)
     screenshotTestImplementation(libs.androidx.ui.tooling)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
