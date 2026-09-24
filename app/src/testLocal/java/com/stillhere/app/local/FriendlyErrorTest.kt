@@ -71,4 +71,51 @@ class FriendlyErrorTest {
         assertTrue(FriendlyError.saysNoVideo("ERROR: [Instagram] Cabc: There is no video in this post"))
         assertFalse(FriendlyError.saysNoVideo("ERROR: Unsupported URL: x"))
     }
+
+    @Test
+    fun instagramFollowersOnlyLoginWallAsksForASignIn() = assertEquals(
+        "Sign in to Instagram to save this.",
+        instagram(
+            "ERROR: [Instagram] Cabc: This content is only available for registered users who follow this " +
+                "account. Use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or " +
+                "--netrc (instagram) to provide account credentials. See  " +
+                "https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to " +
+                "manually pass cookies",
+        ),
+    )
+
+    @Test
+    fun instagramRedirectedToLoginPageAsksForASignIn() = assertEquals(
+        "Sign in to Instagram to save this.",
+        instagram(
+            "ERROR: [Instagram] Cabc: The webpage request was redirected to the login page. You have " +
+                "exceeded the rate-limit for accessing posts anonymously. Use --cookies, " +
+                "--cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (instagram) to " +
+                "provide account credentials. See  " +
+                "https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to " +
+                "manually pass cookies",
+        ),
+    )
+
+    @Test
+    fun tikTokPrivateAccountLoginWallAsksForASignIn() = assertEquals(
+        "Sign in to TikTok to save this.",
+        tiktok(
+            "ERROR: [TikTok] Cabc: This user's account is likely either private or all of their videos are " +
+                "private. Log into an account that has access. Use --cookies, --cookies-from-browser, " +
+                "--username and --password, --netrc-cmd, or --netrc (tiktok) to provide account credentials. " +
+                "See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to " +
+                "manually pass cookies",
+        ),
+    )
+
+    @Test
+    fun genuineExtractorBugStillSuggestsAnUpdate() = assertEquals(
+        "TikTok did not return this post. ${FriendlyError.UPDATE_HINT}",
+        tiktok(
+            "ERROR: [TikTok] 1: Unable to extract universal data for rehydration; please report this issue " +
+                "on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue " +
+                "template. Confirm you are on the latest version using  yt-dlp -U",
+        ),
+    )
 }

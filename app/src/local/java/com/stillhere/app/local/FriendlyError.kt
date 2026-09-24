@@ -18,9 +18,12 @@ object FriendlyError {
         "unable to resolve host", "failed to resolve", "no address associated with hostname",
         "name or service not known", "network is unreachable", "timed out",
     )
-    // Instagram's "rate-limit reached or login required" is almost always the
-    // login, so login is checked before the rate limit.
-    private val LOGIN = listOf("login required", "log in", "sign in to confirm", "private video", "this account is private")
+    // Login is checked before the rate-limit and gone categories because
+    // yt-dlp's login walls often also mention rate limits or unavailability,
+    // and its login hint carries a github.com FAQ link.
+    private val LOGIN = listOf(
+        "login required", "log in", "sign in to confirm", "private", "--cookies", "registered users", "login page",
+    )
     private val RATE_LIMIT = listOf("http error 429", "too many requests")
     private val GONE = listOf(
         "unexpected response from webpage request", "video currently unavailable", "video unavailable",
@@ -28,7 +31,7 @@ object FriendlyError {
     )
     // An error that asks the reader to open an issue is aimed at a yt-dlp
     // maintainer, not at someone who pasted a link.
-    private val BROKEN_EXTRACTOR = listOf("github.com/yt-dlp", "please report this issue", "yt-dlp -u", "unable to extract")
+    private val BROKEN_EXTRACTOR = listOf("github.com/yt-dlp/yt-dlp/issues", "please report this issue", "yt-dlp -u", "unable to extract")
 
     fun from(raw: String, platform: Platform): String {
         val text = raw.trim()
