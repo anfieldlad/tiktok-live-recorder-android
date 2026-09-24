@@ -1,9 +1,15 @@
 package com.stillhere.app.local
 
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okio.Buffer
+import okio.BufferedSource
+import okio.Source
+import okio.Timeout
+import okio.buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -54,5 +60,41 @@ class RemoteDownloaderTest {
         val guarded = RemoteDownloader(OkHttpClient(), guard = { throw IllegalArgumentException("inside") })
         assertThrows(IllegalArgumentException::class.java) { guarded.download(media(), temp.root, "r") }
         assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun aNonIOExceptionMidStreamStillLeavesNoFile() {
+        server.enqueue(MockResponse().setBody("placeholder"))
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                response.newBuilder().body(ThrowingBody()).build()
+            }
+            .build()
+        val downloader = RemoteDownloader(client, guard = {})
+        assertThrows(IllegalStateException::class.java) { downloader.download(media(), temp.root, "r") }
+        assertFalse(temp.root.listFiles()!!.any())
+    }
+
+    /** A response body whose source reads a few bytes, then blows up with a non-IOException. */
+    private class ThrowingBody : ResponseBody() {
+        override fun contentType() = "application/octet-stream".toMediaType()
+        override fun contentLength() = -1L
+        override fun source(): BufferedSource {
+            val source = object : Source {
+                private var served = false
+                override fun read(sink: Buffer, byteCount: Long): Long {
+                    if (!served) {
+                        served = true
+                        sink.writeUtf8("ab")
+                        return 2L
+                    }
+                    throw IllegalStateException("boom mid-stream")
+                }
+                override fun timeout(): Timeout = Timeout.NONE
+                override fun close() {}
+            }
+            return source.buffer()
+        }
     }
 }

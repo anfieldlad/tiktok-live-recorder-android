@@ -43,7 +43,7 @@ class RemoteDownloader(
                         }
                     }
                 }
-            } catch (e: IOException) {
+            } catch (e: Throwable) {
                 target.delete()
                 throw e
             }
