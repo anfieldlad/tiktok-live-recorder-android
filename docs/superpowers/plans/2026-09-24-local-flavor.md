@@ -10,13 +10,16 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-local-flavor-design.md`
 
+**Execution order:** Task 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → **16** → 12 → 13 → 14 → 15. Task 16 was added after the spikes and runs between 11 and 12.
+
 ## Global Constraints
 
 - `minSdk 26`, `compileSdk 36`, `targetSdk 36`, JDK 17 (`JAVA_HOME` must point at a JDK 17+; Java 8 fails with this AGP).
 - Flavor dimension `engine`. `server` keeps `applicationId` `com.stillhere.app` with no suffix, so existing installs keep upgrading. `local` gets `applicationIdSuffix = ".local"` and the app name **Still Here Local**.
 - Nothing under `app/src/main` or `app/src/local` may import `com.stillhere.app.net` or reference `ApiClient`, `SettingsRepo`, `LiveController` or `WatchJob`.
 - The local flavor never sends a session cookie anywhere except the platform it belongs to.
-- tikwm is only a fallback: TikTok photo posts, or when yt-dlp fails on a TikTok link.
+- Local reads TikTok natively with OkHttp (`TikTokEngine`, Task 16), never with yt-dlp: yt-dlp can't read TikTok without an impersonation target, which Android lacks (spike notes, `docs/superpowers/plans/2026-09-24-local-flavor-spike.md`).
+- tikwm is only a fallback: when the native TikTok reader fails.
 - yt-dlp arguments are the server's (`post_download_service.py`, `instagram_download_service.py`) minus `--impersonate`.
 - Notification copy stays plain. In-app copy follows the register's voice, as in the existing screens.
 - Commit messages follow the repo's style (`feat:`, `refactor:`, `test:`, `docs:`, lowercase summary) and end with the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -43,7 +46,7 @@
 - `FlavorModule.kt`, `FlavorFeatures.kt`, `ui/FlavorScreens.kt`, `AndroidManifest.xml`
 - `res/values/strings.xml`, `res/drawable/ic_launcher_background.xml`
 - `auth/LocalSessionStore.kt`
-- In `local/`: `SessionCookies.kt`, `LocalRoute.kt`, `YtDlpArgs.kt`, `FriendlyError.kt`, `InstagramShortcode.kt`, `InstagramMediaParser.kt`, `TikwmParser.kt`, `RemoteMedia.kt`, `PublicUrl.kt`, `MediaExtension.kt`, `RemoteDownloader.kt`, `YtDlp.kt`, `LocalMediaSource.kt`, `Engines.kt`, `UpdatePolicy.kt`, `YtDlpUpdater.kt`, `ui/YtDlpSection.kt`
+- In `local/`: `EngineCalls.kt`, `JobCookieJar.kt`, `TikTokPageParser.kt`, `TikTokEngine.kt`, `SessionCookies.kt`, `LocalRoute.kt`, `YtDlpArgs.kt`, `FriendlyError.kt`, `InstagramShortcode.kt`, `InstagramMediaParser.kt`, `TikwmParser.kt`, `RemoteMedia.kt`, `PublicUrl.kt`, `MediaExtension.kt`, `RemoteDownloader.kt`, `YtDlp.kt`, `LocalMediaSource.kt`, `Engines.kt`, `UpdatePolicy.kt`, `YtDlpUpdater.kt`, `ui/YtDlpSection.kt`
 
 **Tests:** `app/src/test` (shared), `app/src/testServer`, `app/src/testLocal`.
 
@@ -1645,9 +1648,8 @@ git commit -m "feat: split into server and local flavors; local keeps sessions o
 **Interfaces:**
 - Consumes: `UrlRouter.Routed`, `Platform`.
 - Produces:
-  - `enum class Engine { YT_DLP, TIKWM, INSTAGRAM }`
+  - `enum class Engine { YT_DLP, TIKTOK, TIKWM, INSTAGRAM }`
   - `LocalRoute.plan(routed: UrlRouter.Routed): List<Engine>`
-  - `LocalRoute.isTikTokPhotoPost(url: String): Boolean`
   - `data class YtDlpOption(val name: String, val value: String? = null)`
   - `YtDlpArgs.build(platform: Platform, outDir: File, cookieFile: File?): List<YtDlpOption>`
 
@@ -1667,20 +1669,16 @@ class LocalRouteTest {
     private fun plan(url: String) = LocalRoute.plan(UrlRouter.route(url)!!)
 
     @Test
-    fun tiktokVideoTriesYtDlpThenTikwm() =
-        assertEquals(listOf(Engine.YT_DLP, Engine.TIKWM), plan("https://www.tiktok.com/@someone/video/7300000000000000000"))
+    fun tiktokVideoIsReadNativelyThenTikwm() =
+        assertEquals(listOf(Engine.TIKTOK, Engine.TIKWM), plan("https://www.tiktok.com/@someone/video/7300000000000000000"))
 
     @Test
-    fun tiktokPhotoPostGoesStraightToTikwm() =
-        assertEquals(listOf(Engine.TIKWM), plan("https://www.tiktok.com/@someone/photo/7300000000000000000?lang=en"))
+    fun aTiktokPhotoPostTakesTheSamePath() =
+        assertEquals(listOf(Engine.TIKTOK, Engine.TIKWM), plan("https://www.tiktok.com/@someone/photo/7300000000000000000?lang=en"))
 
     @Test
-    fun aShortLinkCannotBeToldApartSoItTakesTheLongWay() =
-        assertEquals(listOf(Engine.YT_DLP, Engine.TIKWM), plan("https://vm.tiktok.com/ZMabc123/"))
-
-    @Test
-    fun aHandleContainingPhotoIsNotAPhotoPost() =
-        assertEquals(listOf(Engine.YT_DLP, Engine.TIKWM), plan("https://www.tiktok.com/@photo/video/1"))
+    fun soDoesAShortLink() =
+        assertEquals(listOf(Engine.TIKTOK, Engine.TIKWM), plan("https://vm.tiktok.com/ZMabc123/"))
 
     @Test
     fun instagramTriesYtDlpThenTheExtractor() =
@@ -1760,27 +1758,20 @@ package com.stillhere.app.local
 
 import com.stillhere.app.domain.Platform
 import com.stillhere.app.domain.UrlRouter
-import java.net.URI
 
 /** The ways Local can turn a link into files. */
-enum class Engine { YT_DLP, TIKWM, INSTAGRAM }
+enum class Engine { YT_DLP, TIKTOK, TIKWM, INSTAGRAM }
 
 /** Which engines to try for a link, in order. The first to produce media wins. */
 object LocalRoute {
 
     fun plan(routed: UrlRouter.Routed): List<Engine> = when (routed.platform) {
-        // yt-dlp cannot read photo posts, so tikwm is the only way in. A short
-        // vm.tiktok.com link hides which kind it is and takes the long way.
-        Platform.TIKTOK ->
-            if (isTikTokPhotoPost(routed.url)) listOf(Engine.TIKWM) else listOf(Engine.YT_DLP, Engine.TIKWM)
+        // yt-dlp can't read TikTok on Android (no impersonation target), so TikTok
+        // has its own reader, which handles videos, photo posts and short links alike.
+        Platform.TIKTOK -> listOf(Engine.TIKTOK, Engine.TIKWM)
         // yt-dlp fails fast on photo posts, so trying it first costs little.
         Platform.INSTAGRAM -> listOf(Engine.YT_DLP, Engine.INSTAGRAM)
         Platform.YOUTUBE -> listOf(Engine.YT_DLP)
-    }
-
-    fun isTikTokPhotoPost(url: String): Boolean {
-        val path = runCatching { URI(url).path }.getOrNull().orEmpty()
-        return path.split('/').contains("photo")
     }
 }
 ```
@@ -2718,7 +2709,8 @@ In `app/build.gradle.kts`, inside `android { }`:
             // native code to split. So split only when a Local build was asked for.
             isEnable = gradle.startParameter.taskNames.any { it.contains("Local") }
             reset()
-            include("arm64-v8a", "armeabi-v7a")
+            // x86_64 is for the emulator; phones want arm64-v8a.
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = false
         }
     }
@@ -2821,7 +2813,7 @@ Build the two flavors in **separate** invocations. Splits switch on for the whol
 Expected: `BUILD SUCCESSFUL` both times.
 
 Run: `ls app/build/outputs/apk/local/debug/ app/build/outputs/apk/server/debug/`
-Expected: local has one APK per ABI (`app-local-arm64-v8a-debug.apk`, `app-local-armeabi-v7a-debug.apk`), and server has a single `app-server-debug.apk`.
+Expected: local has one APK per ABI (`app-local-arm64-v8a-debug.apk`, `app-local-armeabi-v7a-debug.apk`, `app-local-x86_64-debug.apk`), and server has a single `app-server-debug.apk`.
 
 - [ ] **Step 5: Commit**
 
@@ -2895,8 +2887,8 @@ class LocalMediaSourceTest {
 
     @Test
     fun theFirstEngineToProduceMediaWins() {
-        fetchAll(source(mapOf(Engine.YT_DLP to writes(Engine.YT_DLP, "clip.mp4"), Engine.TIKWM to writes(Engine.TIKWM, "x.mp4"))), tiktok)
-        assertEquals(listOf(Engine.YT_DLP), called)
+        fetchAll(source(mapOf(Engine.TIKTOK to writes(Engine.TIKTOK, "clip.mp4"), Engine.TIKWM to writes(Engine.TIKWM, "x.mp4"))), tiktok)
+        assertEquals(listOf(Engine.TIKTOK), called)
         assertEquals(listOf(IncomingFile(1, 1, "clip.mp4", null) to "clip.mp4"), received)
     }
 
@@ -2904,12 +2896,12 @@ class LocalMediaSourceTest {
     fun fallsBackAndHandsFilesOverInOrder() {
         run(
             source(mapOf(
-                Engine.YT_DLP to fails(Engine.YT_DLP, "ERROR: Unsupported URL: x"),
+                Engine.TIKTOK to fails(Engine.TIKTOK, "ERROR: Unsupported URL: x"),
                 Engine.TIKWM to writes(Engine.TIKWM, "1-image-002.jpg", "1-image-001.jpg"),
             )),
             tiktok,
         )
-        assertEquals(listOf(Engine.YT_DLP, Engine.TIKWM), called)
+        assertEquals(listOf(Engine.TIKTOK, Engine.TIKWM), called)
         assertEquals(listOf("1-image-001.jpg", "1-image-002.jpg"), received.map { it.first.name })
         assertEquals(listOf(1, 2), received.map { it.first.index })
         assertTrue(received.all { it.first.total == 2 })
@@ -2917,21 +2909,21 @@ class LocalMediaSourceTest {
 
     @Test
     fun sidecarsNeverReachTheGallery() {
-        fetchAll(source(mapOf(Engine.YT_DLP to writes(Engine.YT_DLP, "clip.mp4", "clip.info.json"), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
+        fetchAll(source(mapOf(Engine.TIKTOK to writes(Engine.TIKTOK, "clip.mp4", "clip.info.json"), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
         assertEquals(listOf("clip.mp4"), received.map { it.first.name })
     }
 
     @Test
     fun onlySidecarsCountsAsNothingAndFallsThrough() {
-        fetchAll(source(mapOf(Engine.YT_DLP to writes(Engine.YT_DLP, "clip.info.json"), Engine.TIKWM to writes(Engine.TIKWM, "clip.mp4"))), tiktok)
-        assertEquals(listOf(Engine.YT_DLP, Engine.TIKWM), called)
+        fetchAll(source(mapOf(Engine.TIKTOK to writes(Engine.TIKTOK, "clip.info.json"), Engine.TIKWM to writes(Engine.TIKWM, "clip.mp4"))), tiktok)
+        assertEquals(listOf(Engine.TIKTOK, Engine.TIKWM), called)
     }
 
     @Test
     fun theFirstErrorIsTheOneShown() {
         val e = assertThrows(MediaException::class.java) {
             fetchAll(source(mapOf(
-                Engine.YT_DLP to fails(Engine.YT_DLP, "ERROR: Unsupported URL: x"),
+                Engine.TIKTOK to fails(Engine.TIKTOK, "ERROR: Unsupported URL: x"),
                 Engine.TIKWM to fails(Engine.TIKWM, "tikwm said no"),
             )), tiktok)
         }
@@ -2952,15 +2944,15 @@ class LocalMediaSourceTest {
     @Test
     fun enginesThatSucceedWithNothingSaySo() {
         val e = assertThrows(MediaException::class.java) {
-            fetchAll(source(mapOf(Engine.YT_DLP to writes(Engine.YT_DLP), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
+            fetchAll(source(mapOf(Engine.TIKTOK to writes(Engine.TIKTOK), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
         }
         assertEquals("Nothing to save came back for that link.", e.message)
     }
 
     @Test
     fun theJobDirectoryIsGoneAfterwardsEitherWay() {
-        fetchAll(source(mapOf(Engine.YT_DLP to writes(Engine.YT_DLP, "clip.mp4"), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
-        runCatching { fetchAll(source(mapOf(Engine.YT_DLP to fails(Engine.YT_DLP, "x"), Engine.TIKWM to fails(Engine.TIKWM, "y"))), tiktok) }
+        fetchAll(source(mapOf(Engine.TIKTOK to writes(Engine.TIKTOK, "clip.mp4"), Engine.TIKWM to writes(Engine.TIKWM))), tiktok)
+        runCatching { fetchAll(source(mapOf(Engine.TIKTOK to fails(Engine.TIKTOK, "x"), Engine.TIKWM to fails(Engine.TIKWM, "y"))), tiktok) }
         assertEquals(0, temp.root.listFiles()!!.size)
     }
 
@@ -3091,6 +3083,387 @@ git commit -m "feat: run local engines in order in a scratch directory that neve
 
 ---
 
+### Task 16: Read TikTok natively
+
+**Runs after Task 11 and before Task 12.** It needs `MediaEngine` and `Session` from Task 11, and Task 12 wires it in.
+
+yt-dlp can't read TikTok on Android because it has no impersonation target (spike 1a). Plain OkHttp can (spike 1b; see the `## Native TikTok spike (Task 1b)` section of `docs/superpowers/plans/2026-09-24-local-flavor-spike.md`). This task builds that reader.
+
+**Files:**
+- Create: `app/src/local/java/com/stillhere/app/local/EngineCalls.kt`
+- Create: `app/src/local/java/com/stillhere/app/local/JobCookieJar.kt`
+- Create: `app/src/local/java/com/stillhere/app/local/TikTokPageParser.kt`
+- Create: `app/src/local/java/com/stillhere/app/local/TikTokEngine.kt`
+- Test: `app/src/testLocal/java/com/stillhere/app/local/JobCookieJarTest.kt`, `TikTokPageParserTest.kt`
+
+**Interfaces:**
+- Consumes: `MediaEngine`, `Session` (Task 11), `EngineFailure` (Task 7), `RemoteMedia`, `RemoteDownloader` (Tasks 8–9), `Engine.TIKTOK` (Task 6).
+- Produces:
+  - `internal inline fun <T> engineCall(block: () -> T): T`. It turns `IOException`/`IllegalArgumentException` into `EngineFailure`, and Task 12's engines use it too.
+  - `class JobCookieJar(initial: List<Cookie> = emptyList()) : CookieJar`
+  - `TikTokPageParser.itemStruct(html: String): JsonObject?`
+  - `TikTokPageParser.media(item: JsonObject): List<RemoteMedia>`
+  - `TikTokPageParser.isPostUrl(url: String): Boolean`
+  - `class TikTokEngine(http: OkHttpClient) : MediaEngine`
+
+- [ ] **Step 1: Write the failing tests**
+
+`app/src/testLocal/java/com/stillhere/app/local/JobCookieJarTest.kt`:
+
+```kotlin
+package com.stillhere.app.local
+
+import okhttp3.Cookie
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class JobCookieJarTest {
+
+    private val page = "https://www.tiktok.com/@someone/video/1".toHttpUrl()
+    private val cdn = "https://v16-webapp-prime.tiktok.com/video/tos/abc".toHttpUrl()
+
+    private fun cookie(header: String) = Cookie.parse(page, header)!!
+
+    @Test
+    fun aDomainCookieFromThePageRidesAlongToTheCdn() {
+        val jar = JobCookieJar()
+        jar.saveFromResponse(page, listOf(cookie("tt_chain_token=abc; Domain=.tiktok.com; Path=/")))
+        assertEquals(listOf("tt_chain_token"), jar.loadForRequest(cdn).map { it.name })
+    }
+
+    @Test
+    fun aHostOnlyCookieStaysWithItsHost() {
+        val jar = JobCookieJar()
+        jar.saveFromResponse(page, listOf(cookie("host_only=1; Path=/")))
+        assertTrue(jar.loadForRequest(cdn).isEmpty())
+        assertEquals(1, jar.loadForRequest(page).size)
+    }
+
+    @Test
+    fun aNewValueReplacesTheOld() {
+        val jar = JobCookieJar()
+        jar.saveFromResponse(page, listOf(cookie("msToken=old; Domain=.tiktok.com; Path=/")))
+        jar.saveFromResponse(page, listOf(cookie("msToken=new; Domain=.tiktok.com; Path=/")))
+        assertEquals(listOf("new"), jar.loadForRequest(page).map { it.value })
+    }
+
+    @Test
+    fun anExpiredCookieIsDropped() {
+        val jar = JobCookieJar()
+        jar.saveFromResponse(page, listOf(cookie("gone=1; Domain=.tiktok.com; Path=/; Max-Age=0")))
+        assertTrue(jar.loadForRequest(page).isEmpty())
+    }
+
+    @Test
+    fun startsWithTheCookiesItIsGiven() {
+        val session = Cookie.Builder().name("sessionid").value("s").domain("tiktok.com").path("/").secure().build()
+        assertEquals(listOf("sessionid"), JobCookieJar(listOf(session)).loadForRequest(cdn).map { it.name })
+    }
+}
+```
+
+`app/src/testLocal/java/com/stillhere/app/local/TikTokPageParserTest.kt`. The two page shapes are the ones spike 1b saw live; the fixtures are trimmed down to the fields that matter:
+
+```kotlin
+package com.stillhere.app.local
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class TikTokPageParserTest {
+
+    // What a first, cookie-less request gets: the rehydration script holds only
+    // reflow keys, and the item sits in a separate api-data script.
+    private val apiDataPage = """
+        <html><head>
+        <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{"__DEFAULT_SCOPE__":{"webapp.reflow.global.queryData":{}}}</script>
+        <script id="api-data" type="application/json">{"videoDetail":{"statusCode":0,"statusMessage":"","itemInfo":{"itemStruct":{"id":"7047","video":{"playAddr":"https:\/\/v16-webapp-prime.tiktok.com\/video\/play.mp4","downloadAddr":"https://v16-webapp-prime.tiktok.com/video/wm.mp4"}}}}}</script>
+        </head><body></body></html>
+    """.trimIndent()
+
+    // What a request with TikTok cookies already set gets: the classic shape.
+    private val rehydrationPage = """
+        <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{"__DEFAULT_SCOPE__":{"webapp.reflow.video.operationSettings":{},"webapp.video-detail":{"statusCode":0,"itemInfo":{"itemStruct":{"id":"7059","video":{"playAddr":"https://cdn/low.mp4","bitrateInfo":[{"Bitrate":500000,"PlayAddr":{"UrlList":["https://cdn/mid.mp4"]}},{"Bitrate":1500000,"PlayAddr":{"UrlList":["https://cdn/high.mp4","https://cdn/high-backup.mp4"]}}]}}}}}}</script>
+    """.trimIndent()
+
+    private val photoPage = """
+        <script id="api-data" type="application/json">{"videoDetail":{"statusCode":0,"itemInfo":{"itemStruct":{"id":"7603","imagePost":{"images":[{"imageURL":{"urlList":["https://p16/1.jpeg","https://p16/1b.jpeg"]}},{"imageURL":{"urlList":["https://p16/2.jpeg"]}}]},"video":{"playAddr":"https://cdn/music-only.mp4"}}}}}</script>
+    """.trimIndent()
+
+    @Test
+    fun readsTheApiDataShape() = assertEquals(
+        listOf(RemoteMedia("https://v16-webapp-prime.tiktok.com/video/play.mp4", "7047", ".mp4")),
+        TikTokPageParser.media(TikTokPageParser.itemStruct(apiDataPage)!!),
+    )
+
+    @Test
+    fun readsTheRehydrationShapeAndTakesTheHighestBitrate() = assertEquals(
+        listOf(RemoteMedia("https://cdn/high.mp4", "7059", ".mp4")),
+        TikTokPageParser.media(TikTokPageParser.itemStruct(rehydrationPage)!!),
+    )
+
+    @Test
+    fun aPhotoPostIsItsImagesInOrderNotItsSoundtrack() = assertEquals(
+        listOf(
+            RemoteMedia("https://p16/1.jpeg", "7603-image-001", ".jpg"),
+            RemoteMedia("https://p16/2.jpeg", "7603-image-002", ".jpg"),
+        ),
+        TikTokPageParser.media(TikTokPageParser.itemStruct(photoPage)!!),
+    )
+
+    @Test
+    fun aPageWithNoItemHasNothing() {
+        assertNull(TikTokPageParser.itemStruct("""<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{"__DEFAULT_SCOPE__":{"webapp.reflow.global.queryData":{}}}</script>"""))
+        assertNull(TikTokPageParser.itemStruct("<html>a puzzle</html>"))
+    }
+
+    @Test
+    fun anExpiredShortLinkLandsOnTheHomepage() {
+        assertTrue(TikTokPageParser.isPostUrl("https://www.tiktok.com/@someone/video/7683191205836082435?_r=1"))
+        assertTrue(TikTokPageParser.isPostUrl("https://www.tiktok.com/@celinedion/photo/7603075722235694344"))
+        assertFalse(TikTokPageParser.isPostUrl("https://www.tiktok.com/?_r=1"))
+        assertFalse(TikTokPageParser.isPostUrl("https://www.tiktok.com/@video"))
+    }
+}
+```
+
+- [ ] **Step 2: Run them to see them fail**
+
+Run: `./gradlew :app:testLocalDebugUnitTest --tests "com.stillhere.app.local.JobCookieJarTest" --tests "com.stillhere.app.local.TikTokPageParserTest"`
+Expected: compilation FAILS with `Unresolved reference: JobCookieJar` and `Unresolved reference: TikTokPageParser`.
+
+- [ ] **Step 3: Implement**
+
+`app/src/local/java/com/stillhere/app/local/EngineCalls.kt`:
+
+```kotlin
+package com.stillhere.app.local
+
+import java.io.IOException
+
+/** Network and guard failures become engine failures, so the source can fall back. */
+internal inline fun <T> engineCall(block: () -> T): T = try {
+    block()
+} catch (e: IOException) {
+    throw EngineFailure(e.message ?: "The connection failed.")
+} catch (e: IllegalArgumentException) {
+    throw EngineFailure(e.message ?: "The media URL was refused.")
+}
+```
+
+`app/src/local/java/com/stillhere/app/local/JobCookieJar.kt`:
+
+```kotlin
+package com.stillhere.app.local
+
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+
+/**
+ * Keeps the cookies one save collects, and sends each to every host its domain
+ * covers. TikTok's video CDN refuses a signed media URL (HTTP 403) unless the
+ * request carries the cookies the page just set, `tt_chain_token` above all.
+ */
+class JobCookieJar(initial: List<Cookie> = emptyList()) : CookieJar {
+
+    private val cookies = initial.toMutableList()
+
+    @Synchronized
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        for (cookie in cookies) {
+            this.cookies.removeAll { it.name == cookie.name && it.domain == cookie.domain && it.path == cookie.path }
+            this.cookies += cookie
+        }
+    }
+
+    @Synchronized
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val now = System.currentTimeMillis()
+        cookies.removeAll { it.expiresAt < now }
+        return cookies.filter { it.matches(url) }
+    }
+}
+```
+
+`app/src/local/java/com/stillhere/app/local/TikTokPageParser.kt`:
+
+```kotlin
+package com.stillhere.app.local
+
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
+import java.net.URI
+
+/**
+ * Reads a TikTok post page. TikTok serves the post in one of two shapes,
+ * depending on the cookies the request already carries, so both are tried.
+ */
+object TikTokPageParser {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** The post's `itemStruct`, or null when the page holds no post. */
+    fun itemStruct(html: String): JsonObject? = fromRehydration(html) ?: fromApiData(html)
+
+    /** What to save: a photo post's images in order, or else the best video. */
+    fun media(item: JsonObject): List<RemoteMedia> {
+        val id = text(item["id"]) ?: "tiktok"
+
+        // A photo post also carries a video (its soundtrack); the images are the post.
+        val images = ((item["imagePost"] as? JsonObject)?.get("images") as? JsonArray)
+            ?.mapNotNull { image ->
+                val urls = ((image as? JsonObject)?.get("imageURL") as? JsonObject)?.get("urlList") as? JsonArray
+                urls?.firstOrNull()?.let(::text)
+            }
+            .orEmpty()
+        if (images.isNotEmpty()) {
+            return images.mapIndexed { index, url ->
+                RemoteMedia(url, "$id-image-${(index + 1).toString().padStart(3, '0')}", ".jpg")
+            }
+        }
+
+        val video = item["video"] as? JsonObject ?: return emptyList()
+        val url = bestBitrate(video) ?: text(video["playAddr"]) ?: text(video["downloadAddr"]) ?: return emptyList()
+        return listOf(RemoteMedia(url, id, ".mp4"))
+    }
+
+    /**
+     * Whether a resolved link is a post. An expired short link does not 404: it
+     * redirects to the homepage with HTTP 200, so only the path tells.
+     */
+    fun isPostUrl(url: String): Boolean {
+        val segments = runCatching { URI(url).path }.getOrNull().orEmpty().split('/')
+        val kind = segments.indexOfFirst { it == "video" || it == "photo" }
+        return kind > 0 && segments.getOrNull(kind + 1)?.isNotBlank() == true
+    }
+
+    // Cookie-primed requests: the item sits in the rehydration script, under the
+    // one `…-detail` key that isn't a reflow key.
+    private fun fromRehydration(html: String): JsonObject? {
+        val scope = parse(script(html, "__UNIVERSAL_DATA_FOR_REHYDRATION__"))?.get("__DEFAULT_SCOPE__") as? JsonObject
+        val detail = scope?.entries?.firstOrNull { (key, _) -> key.endsWith("-detail") && "reflow" !in key }?.value
+        return itemOf(detail)
+    }
+
+    // A first, cookie-less request: the item sits in its own `api-data` script,
+    // under `videoDetail` — for photo posts too.
+    private fun fromApiData(html: String): JsonObject? {
+        val root = parse(script(html, "api-data"))
+        val detail = root?.entries?.firstOrNull { (key, _) -> key.endsWith("Detail") }?.value
+        return itemOf(detail)
+    }
+
+    private fun itemOf(detail: JsonElement?): JsonObject? =
+        ((detail as? JsonObject)?.get("itemInfo") as? JsonObject)?.get("itemStruct") as? JsonObject
+
+    private fun bestBitrate(video: JsonObject): String? =
+        (video["bitrateInfo"] as? JsonArray)
+            ?.mapNotNull { it as? JsonObject }
+            ?.maxByOrNull { (it["Bitrate"] as? JsonPrimitive)?.longOrNull ?: 0 }
+            ?.let { ((it["PlayAddr"] as? JsonObject)?.get("UrlList") as? JsonArray)?.firstOrNull() }
+            ?.let(::text)
+
+    private fun script(html: String, id: String): String? =
+        Regex("""<script[^>]*\bid="${Regex.escape(id)}"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+            .find(html)?.groupValues?.get(1)
+
+    private fun parse(text: String?): JsonObject? =
+        text?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+
+    private fun text(element: JsonElement?): String? =
+        (element as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+}
+```
+
+`app/src/local/java/com/stillhere/app/local/TikTokEngine.kt`:
+
+```kotlin
+package com.stillhere.app.local
+
+import com.stillhere.app.domain.UrlRouter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.Cookie
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+
+/**
+ * Reads a TikTok video or photo post with plain OkHttp. Android's own TLS stack
+ * gets the real page where yt-dlp's Python one is refused. Each save gets a fresh
+ * cookie jar: the media CDN checks the cookies the page just set.
+ */
+class TikTokEngine(private val http: OkHttpClient) : MediaEngine {
+
+    override suspend fun fetchInto(routed: UrlRouter.Routed, outDir: File, session: Session?) =
+        withContext(Dispatchers.IO) {
+            val client = http.newBuilder().cookieJar(JobCookieJar(listOfNotNull(session?.let(::sessionCookie)))).build()
+
+            // OkHttp follows a short link's redirects; the final URL says where it went.
+            val (finalUrl, html) = engineCall {
+                client.newCall(pageRequest(routed.url)).execute().use { response ->
+                    if (!response.isSuccessful) throw EngineFailure("TikTok answered HTTP ${response.code}")
+                    response.request.url.toString() to response.body?.string().orEmpty()
+                }
+            }
+            if (!TikTokPageParser.isPostUrl(finalUrl)) throw EngineFailure("This post is unavailable")
+
+            val item = TikTokPageParser.itemStruct(html) ?: throw EngineFailure("This post is unavailable")
+            val media = TikTokPageParser.media(item)
+            if (media.isEmpty()) throw EngineFailure("This post is unavailable")
+
+            val downloader = RemoteDownloader(client)
+            media.forEach { engineCall { downloader.download(it, outDir, "https://www.tiktok.com/") } }
+        }
+
+    private fun pageRequest(url: String) = Request.Builder()
+        .url(url)
+        .header("User-Agent", RemoteDownloader.USER_AGENT)
+        .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .build()
+
+    // The signed-in user's session, so private and age-restricted posts open too.
+    private fun sessionCookie(session: Session): Cookie = Cookie.Builder()
+        .name("sessionid")
+        .value(session.sessionId)
+        .domain("tiktok.com")
+        .path("/")
+        .secure()
+        .build()
+}
+```
+
+"This post is unavailable" is on `FriendlyError`'s GONE list, so the user sees *"This post is gone — deleted, private, or region-locked."* unless tikwm manages the post after all.
+
+- [ ] **Step 4: Run them to see them pass**
+
+Run: `./gradlew :app:testLocalDebugUnitTest --tests "com.stillhere.app.local.JobCookieJarTest" --tests "com.stillhere.app.local.TikTokPageParserTest"`
+Expected: PASS (10 tests).
+
+Run: `./gradlew :app:testLocalDebugUnitTest :app:assembleLocalDebug`
+Expected: `BUILD SUCCESSFUL`. `TikTokEngine` isn't wired in yet; that happens in Task 12.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/src/local app/src/testLocal
+git commit -m "feat: read TikTok videos and photo posts natively, without yt-dlp"
+```
+
+---
+
 ### Task 12: Real engines, wired into the local flavor
 
 **Files:**
@@ -3098,7 +3471,7 @@ git commit -m "feat: run local engines in order in a scratch directory that neve
 - Modify: `app/src/local/java/com/stillhere/app/FlavorModule.kt`
 
 **Interfaces:**
-- Consumes: everything from Tasks 5–11.
+- Consumes: everything from Tasks 5–11, plus `TikTokEngine` and `engineCall` from Task 16.
 - Produces:
   - `YtDlpEngine(ytDlp: YtDlp)`, `TikwmEngine(client: OkHttpClient, downloader: RemoteDownloader)` and `InstagramEngine(client: OkHttpClient, downloader: RemoteDownloader)`, all implementing `MediaEngine`
   - local `FlavorModule.ytDlp: YtDlp`, `FlavorModule.scope: CoroutineScope`
@@ -3117,7 +3490,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import java.io.IOException
 
 /** yt-dlp, with the server's arguments. */
 class YtDlpEngine(private val ytDlp: YtDlp) : MediaEngine {
@@ -3126,7 +3498,7 @@ class YtDlpEngine(private val ytDlp: YtDlp) : MediaEngine {
     }
 }
 
-/** tikwm, for TikTok photo posts and whatever yt-dlp could not read. */
+/** tikwm, for whatever the native TikTok reader could not read. */
 class TikwmEngine(
     private val client: OkHttpClient,
     private val downloader: RemoteDownloader,
@@ -3138,10 +3510,10 @@ class TikwmEngine(
             val body = get(Request.Builder().url(url).header("User-Agent", RemoteDownloader.USER_AGENT).build())
             val media = TikwmParser.parse(body)
             if (media.isEmpty()) throw EngineFailure("This post couldn't be read. It may be deleted or private.")
-            media.forEach { fetch { downloader.download(it, outDir, "https://www.tiktok.com/") } }
+            media.forEach { engineCall { downloader.download(it, outDir, "https://www.tiktok.com/") } }
         }
 
-    private fun get(request: Request): String = fetch {
+    private fun get(request: Request): String = engineCall {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw EngineFailure("tikwm answered HTTP ${response.code}")
             response.body?.string().orEmpty()
@@ -3171,7 +3543,7 @@ class InstagramEngine(
                 .header("User-Agent", RemoteDownloader.USER_AGENT)
                 .header("Referer", "https://www.instagram.com/")
                 .build()
-            val body = fetch {
+            val body = engineCall {
                 client.newCall(request).execute().use { response ->
                     when {
                         response.code == 401 || response.code == 403 ->
@@ -3184,22 +3556,13 @@ class InstagramEngine(
             }
             val media = InstagramMediaParser.parse(body, shortcode)
             if (media.isEmpty()) throw EngineFailure("Instagram returned nothing to save for this post.")
-            media.forEach { fetch { downloader.download(it, outDir, "https://www.instagram.com/") } }
+            media.forEach { engineCall { downloader.download(it, outDir, "https://www.instagram.com/") } }
         }
 
     private companion object {
         // Instagram's own web client id; the media API refuses requests without one.
         const val WEB_APP_ID = "936619743392459"
     }
-}
-
-/** Network and guard failures become engine failures, so the source can fall back. */
-private inline fun <T> fetch(block: () -> T): T = try {
-    block()
-} catch (e: IOException) {
-    throw EngineFailure(e.message ?: "The connection failed.")
-} catch (e: IllegalArgumentException) {
-    throw EngineFailure(e.message ?: "The media URL was refused.")
 }
 ```
 
@@ -3217,6 +3580,7 @@ import com.stillhere.app.local.Engine
 import com.stillhere.app.local.InstagramEngine
 import com.stillhere.app.local.LocalMediaSource
 import com.stillhere.app.local.RemoteDownloader
+import com.stillhere.app.local.TikTokEngine
 import com.stillhere.app.local.TikwmEngine
 import com.stillhere.app.local.YtDlp
 import com.stillhere.app.local.YtDlpEngine
@@ -3253,6 +3617,7 @@ class FlavorModule(private val app: StillHereApp) : Flavor {
             jobsRoot = jobsRoot,
             engines = mapOf(
                 Engine.YT_DLP to YtDlpEngine(ytDlp),
+                Engine.TIKTOK to TikTokEngine(http),
                 Engine.TIKWM to TikwmEngine(http, downloader),
                 Engine.INSTAGRAM to InstagramEngine(http, downloader),
             ),
@@ -3554,9 +3919,9 @@ In `README.md`, directly after the intro paragraph that ends "Android only.", ad
 | Setup | a backend URL | none |
 
 Both install side by side (`com.stillhere.app` and `com.stillhere.app.local`).
-Local falls back to tikwm.com for TikTok photo posts and when yt-dlp can't read
-a TikTok link, and to Instagram's media API for photo posts. The media API needs
-an Instagram sign-in.
+Local reads TikTok itself (yt-dlp can't on Android), falls back to tikwm.com only
+when that fails, and uses Instagram's media API for photo posts. The media API
+needs an Instagram sign-in.
 ```
 
 In **Setup → 2. Build the APK**, replace the `assembleDebug` line and the output path with:
@@ -3588,7 +3953,7 @@ Under section 2, add:
 ```markdown
 ### 2.4 Smoke-test Still Here Local
 
-Install `app-local-arm64-v8a-debug.apk` beside the server app and check:
+Install the Local APK for the device's ABI (`app-local-arm64-v8a-debug.apk` on most phones, `app-local-x86_64-debug.apk` on the emulator) beside the server app and check:
 TikTok video · TikTok photo post · Instagram reel · Instagram carousel (signed
 in) · Instagram photo post signed out (expect "Sign in to Instagram…") ·
 YouTube Short · a long YouTube video (tests the audio/video merge) ·
@@ -3601,6 +3966,7 @@ In `docs/superpowers/specs/2026-09-24-local-flavor-design.md`:
 - In **Seams**, replace the two interface code blocks with the signatures from Task 3's Interfaces block: `MediaSource.fetch(routed, onFile: (IncomingFile, InputStream) -> Unit)`, and `SessionStore` with `isAvailable()`.
 - Replace the `Features` code block with `data class Features(val destinations: List<Destination>, val sessionsNote: String)`. Add one sentence: *Server settings and Local's yt-dlp row are flavor composables (`FlavorSettingsSection`), not flags.*
 - In **Errors**, add after the table: *Exception: yt-dlp's "There is no video in this post" never counts as the first error — on a photo post it only means yt-dlp was the wrong tool, and the next engine's error explains the post.*
+- In decision 3, **2. Route** and **3. Extract**, record that TikTok is read by a native OkHttp reader (`TikTokEngine`: page → `api-data` or rehydration JSON → media fetched with the page's cookies), never by yt-dlp. Its route is native reader, then tikwm, for videos, photo posts and short links alike. Point to the spike notes for why.
 - In **3. Extract → tikwm**, replace "`data.play`" with "`data.play`, falling back to the watermarked `data.wmplay` (the server prefers `wmplay`; Local prefers the clean copy)". Add: *Relative paths are resolved against `https://www.tikwm.com`.*
 
 - [ ] **Step 4: Commit**
@@ -3622,7 +3988,7 @@ git commit -m "docs: describe the two flavors and bring the spec in line with th
 ./gradlew :app:assembleServerDebug
 ./gradlew :app:assembleLocalDebug
 adb install -r app/build/outputs/apk/server/debug/app-server-debug.apk
-adb install -r app/build/outputs/apk/local/debug/app-local-arm64-v8a-debug.apk
+adb install -r app/build/outputs/apk/local/debug/app-local-x86_64-debug.apk   # arm64-v8a on a phone
 ```
 
 Expected: two icons, **Still Here** and **Still Here Local**, the second on pale green paper.
