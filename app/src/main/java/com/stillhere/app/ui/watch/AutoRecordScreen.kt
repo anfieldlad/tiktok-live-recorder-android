@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.stillhere.app.ui.AppViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.stillhere.app.ui.ledger.EntryCard
 import com.stillhere.app.ui.ledger.Eyebrow
 import com.stillhere.app.ui.ledger.FiledHead
@@ -32,7 +32,7 @@ import com.stillhere.app.ui.ledger.stampFor
 import kotlinx.coroutines.delay
 
 @Composable
-fun AutoRecordScreen(viewModel: AppViewModel) {
+fun AutoRecordScreen(viewModel: WatchViewModel = viewModel()) {
     val username by viewModel.watchUsername.collectAsStateWithLifecycle()
     val duration by viewModel.watchDuration.collectAsStateWithLifecycle()
     val notice by viewModel.watchNotice.collectAsStateWithLifecycle()

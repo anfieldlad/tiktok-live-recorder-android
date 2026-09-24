@@ -18,8 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.stillhere.app.live.LiveState
-import com.stillhere.app.ui.AppViewModel
 import com.stillhere.app.ui.ledger.EntryCard
 import com.stillhere.app.ui.ledger.Eyebrow
 import com.stillhere.app.ui.ledger.FiledHead
@@ -36,7 +36,7 @@ import com.stillhere.app.ui.ledger.humanBytes
 import kotlinx.coroutines.delay
 
 @Composable
-fun RecordLiveScreen(viewModel: AppViewModel) {
+fun RecordLiveScreen(viewModel: LiveViewModel = viewModel()) {
     val username by viewModel.liveUsername.collectAsStateWithLifecycle()
     val check by viewModel.liveCheck.collectAsStateWithLifecycle()
     val checking by viewModel.liveChecking.collectAsStateWithLifecycle()

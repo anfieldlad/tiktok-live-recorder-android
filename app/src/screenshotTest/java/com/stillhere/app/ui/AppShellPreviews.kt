@@ -88,7 +88,7 @@ private fun AppShellPreview() {
                     }
                 }
             }
-            LedgerNavBar(Destination.Watch) {}
+            LedgerNavBar(Destination.entries, Destination.Watch) {}
         }
     }
 }

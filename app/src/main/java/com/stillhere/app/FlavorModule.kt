@@ -16,6 +16,7 @@ class FlavorModule(app: StillHereApp) : Flavor {
     /** Process-wide holder for the active live recording. */
     val liveController: LiveController by lazy { LiveController() }
 
+    override val features: Features = flavorFeatures
     override val mediaSource: MediaSource by lazy { ServerMediaSource(api) }
     override val sessionStore: SessionStore by lazy { ServerSessionStore(api, settings) }
 }

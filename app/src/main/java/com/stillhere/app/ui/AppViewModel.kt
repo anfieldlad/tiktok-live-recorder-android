@@ -3,15 +3,12 @@ package com.stillhere.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.stillhere.app.Features
 import com.stillhere.app.StillHereApp
 import com.stillhere.app.data.HistoryEntry
 import com.stillhere.app.domain.UrlRouter
 import com.stillhere.app.download.DownloadProgress
-import com.stillhere.app.live.LiveRecordingService
-import com.stillhere.app.live.LiveState
-import com.stillhere.app.net.LiveStatus
 import com.stillhere.app.domain.Platform
-import com.stillhere.app.net.WatchJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,18 +17,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Backs the Compose UI. Wraps the [StillHereApp] singletons and exposes the reactive state the
- * screens render: settings, history, the active download, the URL field, and the clipboard
- * suggestion banner.
+ * Backs the shared screens: history, the active download, the URL field, the clipboard
+ * banner and sessions. Flavor-only screens have their own view models.
  */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app get() = getApplication<StillHereApp>()
 
-    val baseUrl: StateFlow<String> =
-        app.flavor.settings.baseUrlFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val apiKey: StateFlow<String> =
-        app.flavor.settings.apiKeyFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    val features: Features get() = app.flavor.features
+
     val history: StateFlow<List<HistoryEntry>> =
         app.history.historyFlow.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -88,18 +82,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         app.controller.clear()
     }
 
-    fun saveSettings(baseUrl: String, apiKey: String) {
-        viewModelScope.launch {
-            app.flavor.settings.setBaseUrl(baseUrl)
-            app.flavor.settings.setApiKey(apiKey)
-        }
-    }
-
     fun clearHistory() {
         viewModelScope.launch { app.history.clear() }
     }
 
     // --- Account sessions (for private / age-restricted downloads) ---
+
+    private val _sessionsAvailable = MutableStateFlow(false)
+    /** False in the server flavor until a backend URL is saved; always true locally. */
+    val sessionsAvailable: StateFlow<Boolean> = _sessionsAvailable.asStateFlow()
 
     private val _tiktokConnected = MutableStateFlow(false)
     val tiktokConnected: StateFlow<Boolean> = _tiktokConnected.asStateFlow()
@@ -111,7 +102,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshAuthStatus() {
         viewModelScope.launch {
             val sessions = app.flavor.sessionStore
-            if (!sessions.isAvailable()) return@launch
+            _sessionsAvailable.value = sessions.isAvailable()
+            if (!_sessionsAvailable.value) return@launch
             _tiktokConnected.value = sessions.isConnected(Platform.TIKTOK)
             _instagramConnected.value = sessions.isConnected(Platform.INSTAGRAM)
         }
@@ -121,116 +113,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             runCatching { app.flavor.sessionStore.clear(platform) }
             refreshAuthStatus()
-        }
-    }
-
-    // --- Live recording ---
-
-    val liveState: StateFlow<LiveState> = app.flavor.liveController.state
-
-    private val _liveUsername = MutableStateFlow("")
-    val liveUsername: StateFlow<String> = _liveUsername.asStateFlow()
-
-    private val _liveCheck = MutableStateFlow<LiveStatus?>(null)
-    val liveCheck: StateFlow<LiveStatus?> = _liveCheck.asStateFlow()
-
-    private val _liveChecking = MutableStateFlow(false)
-    val liveChecking: StateFlow<Boolean> = _liveChecking.asStateFlow()
-
-    fun onLiveUsernameChange(value: String) {
-        _liveUsername.value = value
-        _liveCheck.value = null
-    }
-
-    fun checkLive() {
-        val username = normalizeLiveUsername(_liveUsername.value)
-        if (username.isBlank()) return
-        viewModelScope.launch {
-            _liveChecking.value = true
-            _liveCheck.value = runCatching { app.flavor.api.checkLive(username) }
-                .getOrElse { LiveStatus(username = username, message = it.message ?: "Couldn't check status.") }
-            _liveChecking.value = false
-        }
-    }
-
-    fun startLiveRecording() {
-        val username = normalizeLiveUsername(_liveUsername.value)
-        if (username.isBlank()) return
-        app.flavor.liveController.reset()
-        LiveRecordingService.start(app, username)
-    }
-
-    fun stopLiveRecording() = LiveRecordingService.stop(app)
-
-    fun dismissLive() = app.flavor.liveController.reset()
-
-    /** Accept a bare handle, "@handle", or a pasted profile/live URL. */
-    private fun normalizeLiveUsername(raw: String): String {
-        var s = raw.trim()
-        val marker = "tiktok.com/@"
-        val at = s.indexOf(marker)
-        if (at >= 0) s = s.substring(at + marker.length)
-        return s.substringBefore('/').substringBefore('?').trim().trimStart('@').trim()
-    }
-
-    // --- Auto-record: standing orders for creators who are not live yet ---
-
-    private val _watches = MutableStateFlow<List<WatchJob>>(emptyList())
-    val watches: StateFlow<List<WatchJob>> = _watches.asStateFlow()
-
-    private val _watchUsername = MutableStateFlow("")
-    val watchUsername: StateFlow<String> = _watchUsername.asStateFlow()
-
-    private val _watchDuration = MutableStateFlow("")
-    val watchDuration: StateFlow<String> = _watchDuration.asStateFlow()
-
-    private val _watchNotice = MutableStateFlow("")
-    val watchNotice: StateFlow<String> = _watchNotice.asStateFlow()
-
-    fun onWatchUsernameChange(value: String) { _watchUsername.value = value }
-
-    fun onWatchDurationChange(value: String) { _watchDuration.value = value.filter { it.isDigit() } }
-
-    fun refreshWatches() {
-        viewModelScope.launch {
-            if (app.flavor.settings.baseUrl().isBlank()) return@launch
-            runCatching { app.flavor.api.listWatches() }
-                .onSuccess { _watches.value = it }
-                .onFailure { _watchNotice.value = it.message ?: "Couldn't reach the register." }
-        }
-    }
-
-    fun placeWatchOrder() {
-        val username = normalizeLiveUsername(_watchUsername.value)
-        if (username.isBlank()) {
-            _watchNotice.value = "Enter a username or live URL."
-            return
-        }
-        viewModelScope.launch {
-            runCatching { app.flavor.api.createWatch(username, _watchDuration.value.toIntOrNull()) }
-                .onSuccess {
-                    _watchUsername.value = ""
-                    _watchDuration.value = ""
-                    _watchNotice.value = "Order placed."
-                    refreshWatches()
-                }
-                .onFailure { _watchNotice.value = it.message ?: "Couldn't place the order." }
-        }
-    }
-
-    fun stopWatch(id: String) {
-        viewModelScope.launch {
-            runCatching { app.flavor.api.stopWatch(id) }
-                .onFailure { _watchNotice.value = it.message ?: "Couldn't stop that order." }
-            refreshWatches()
-        }
-    }
-
-    fun deleteWatch(id: String) {
-        viewModelScope.launch {
-            runCatching { app.flavor.api.deleteWatch(id) }
-                .onFailure { _watchNotice.value = it.message ?: "Couldn't discard that order." }
-            refreshWatches()
         }
     }
 }

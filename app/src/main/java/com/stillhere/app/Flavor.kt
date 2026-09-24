@@ -9,6 +9,7 @@ import com.stillhere.app.download.MediaSource
  * static type is that flavor's `FlavorModule`.
  */
 interface Flavor {
+    val features: Features
     val mediaSource: MediaSource
     val sessionStore: SessionStore
 

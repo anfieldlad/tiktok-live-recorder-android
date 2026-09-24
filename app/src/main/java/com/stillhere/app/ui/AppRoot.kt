@@ -37,23 +37,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stillhere.app.ui.ledger.Ledger
 import com.stillhere.app.ui.ledger.LedgerType
 import com.stillhere.app.ui.ledger.RuleWidth
-import com.stillhere.app.ui.record.RecordLiveScreen
 import com.stillhere.app.ui.save.SavePostScreen
 import com.stillhere.app.ui.sessions.SessionsSheet
-import com.stillhere.app.ui.watch.AutoRecordScreen
-
-/**
- * The three sections the web has, so both products share one mental model and
- * no feature is phone-only or web-only.
- */
-internal enum class Destination(val label: String) {
-    Record("Record live"),
-    Watch("Auto-record"),
-    Save("Save post"),
-}
 
 @Composable
 fun AppRoot(viewModel: AppViewModel) {
+    val destinations = viewModel.features.destinations
     var destination by rememberSaveable { mutableStateOf(Destination.Save) }
     var sessionsOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -70,13 +59,15 @@ fun AppRoot(viewModel: AppViewModel) {
                 onOpenSessions = { sessionsOpen = true },
             )
         },
-        bottomBar = { LedgerNavBar(destination) { destination = it } },
+        bottomBar = {
+            // A strip for choosing between tabs says nothing when there is one tab.
+            if (destinations.size > 1) LedgerNavBar(destinations, destination) { destination = it }
+        },
     ) { padding ->
         Box(Modifier.padding(padding)) {
             when (destination) {
-                Destination.Record -> RecordLiveScreen(viewModel)
-                Destination.Watch -> AutoRecordScreen(viewModel)
                 Destination.Save -> SavePostScreen(viewModel)
+                else -> FlavorDestination(destination)
             }
         }
     }
@@ -136,7 +127,7 @@ internal fun Masthead(bothSessionsReady: Boolean, onOpenSessions: () -> Unit) {
  * radius and an elevated surface, all three of which fight this design.
  */
 @Composable
-internal fun LedgerNavBar(current: Destination, onSelect: (Destination) -> Unit) {
+internal fun LedgerNavBar(entries: List<Destination>, current: Destination, onSelect: (Destination) -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -145,7 +136,7 @@ internal fun LedgerNavBar(current: Destination, onSelect: (Destination) -> Unit)
     ) {
         HorizontalDivider(thickness = RuleWidth, color = Ledger.Rule)
         Row(Modifier.fillMaxWidth()) {
-            Destination.entries.forEach { entry ->
+            entries.forEach { entry ->
                 val active = entry == current
                 // weight(1f), not SpaceEvenly: each item would otherwise size to
                 // its own label, so the longest one decides whether three fit at
