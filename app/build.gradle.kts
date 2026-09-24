@@ -85,6 +85,25 @@ android {
     // Both this and the matching flag in gradle.properties are required by the
     // screenshot plugin — it checks each one separately.
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
+
+    packaging {
+        // youtubedl-android runs Python and ffmpeg as executables unpacked from
+        // the APK's native libraries, which only works when they are extracted
+        // at install. The server flavor has no native code, so this costs it nothing.
+        jniLibs { useLegacyPackaging = true }
+    }
+
+    splits {
+        abi {
+            // Splits cannot be set per flavor, and the server flavor has no
+            // native code to split. So split only when a Local build was asked for.
+            isEnable = gradle.startParameter.taskNames.any { it.contains("Local") }
+            reset()
+            // x86_64 is for the emulator; phones want arm64-v8a.
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {
@@ -106,6 +125,11 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+
+    // Python, yt-dlp and ffmpeg as native libraries. Local only: the server
+    // flavor must not carry tens of MB it never runs.
+    "localImplementation"(libs.youtubedl.android.library)
+    "localImplementation"(libs.youtubedl.android.ffmpeg)
 
     testImplementation(libs.junit)
     "testLocalImplementation"(libs.okhttp.mockwebserver)
