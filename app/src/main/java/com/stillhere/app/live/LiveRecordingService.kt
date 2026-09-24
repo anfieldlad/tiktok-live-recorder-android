@@ -67,13 +67,13 @@ class LiveRecordingService : Service() {
 
     private suspend fun record(username: String) {
         val app = applicationContext as StillHereApp
-        val controller = app.liveController
+        val controller = app.flavor.liveController
         controller.update(LiveState.Starting(username))
 
         var uri: Uri? = null
         var bytes = 0L
         try {
-            val call = app.api.openLiveStream(username)
+            val call = app.flavor.api.openLiveStream(username)
             activeCall = call
             val response = call.execute()
             if (!response.isSuccessful) {

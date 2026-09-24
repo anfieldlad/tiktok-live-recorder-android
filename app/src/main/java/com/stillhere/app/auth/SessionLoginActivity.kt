@@ -154,14 +154,14 @@ class SessionLoginActivity : ComponentActivity() {
         handler.removeCallbacks(pollCookies)
         lifecycleScope.launch {
             val app = applicationContext as StillHereApp
-            val result = runCatching { app.api.saveSession(platform, sessionId) }
+            val result = runCatching { app.flavor.sessionStore.save(platform, sessionId) }
             if (result.isSuccess) {
                 Toast.makeText(this@SessionLoginActivity, "Signed in to ${platform.label}", Toast.LENGTH_SHORT).show()
                 setResult(RESULT_OK)
             } else {
                 Toast.makeText(
                     this@SessionLoginActivity,
-                    "Captured login but couldn't reach the backend.",
+                    "Captured the login but couldn't save it.",
                     Toast.LENGTH_LONG,
                 ).show()
                 setResult(RESULT_CANCELED)

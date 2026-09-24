@@ -29,9 +29,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val app get() = getApplication<StillHereApp>()
 
     val baseUrl: StateFlow<String> =
-        app.settings.baseUrlFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        app.flavor.settings.baseUrlFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val apiKey: StateFlow<String> =
-        app.settings.apiKeyFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+        app.flavor.settings.apiKeyFlow.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val history: StateFlow<List<HistoryEntry>> =
         app.history.historyFlow.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -90,8 +90,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveSettings(baseUrl: String, apiKey: String) {
         viewModelScope.launch {
-            app.settings.setBaseUrl(baseUrl)
-            app.settings.setApiKey(apiKey)
+            app.flavor.settings.setBaseUrl(baseUrl)
+            app.flavor.settings.setApiKey(apiKey)
         }
     }
 
@@ -107,25 +107,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _instagramConnected = MutableStateFlow(false)
     val instagramConnected: StateFlow<Boolean> = _instagramConnected.asStateFlow()
 
-    /** Refresh per-platform login status from the backend (no-op if no backend set). */
+    /** Refresh per-platform login status from this flavor's session store. */
     fun refreshAuthStatus() {
         viewModelScope.launch {
-            if (app.settings.baseUrl().isBlank()) return@launch
-            _tiktokConnected.value = runCatching { app.api.authStatus(Platform.TIKTOK) }.getOrDefault(false)
-            _instagramConnected.value = runCatching { app.api.authStatus(Platform.INSTAGRAM) }.getOrDefault(false)
+            val sessions = app.flavor.sessionStore
+            if (!sessions.isAvailable()) return@launch
+            _tiktokConnected.value = sessions.isConnected(Platform.TIKTOK)
+            _instagramConnected.value = sessions.isConnected(Platform.INSTAGRAM)
         }
     }
 
     fun logout(platform: Platform) {
         viewModelScope.launch {
-            runCatching { app.api.clearSession(platform) }
+            runCatching { app.flavor.sessionStore.clear(platform) }
             refreshAuthStatus()
         }
     }
 
     // --- Live recording ---
 
-    val liveState: StateFlow<LiveState> = app.liveController.state
+    val liveState: StateFlow<LiveState> = app.flavor.liveController.state
 
     private val _liveUsername = MutableStateFlow("")
     val liveUsername: StateFlow<String> = _liveUsername.asStateFlow()
@@ -146,7 +147,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (username.isBlank()) return
         viewModelScope.launch {
             _liveChecking.value = true
-            _liveCheck.value = runCatching { app.api.checkLive(username) }
+            _liveCheck.value = runCatching { app.flavor.api.checkLive(username) }
                 .getOrElse { LiveStatus(username = username, message = it.message ?: "Couldn't check status.") }
             _liveChecking.value = false
         }
@@ -155,13 +156,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun startLiveRecording() {
         val username = normalizeLiveUsername(_liveUsername.value)
         if (username.isBlank()) return
-        app.liveController.reset()
+        app.flavor.liveController.reset()
         LiveRecordingService.start(app, username)
     }
 
     fun stopLiveRecording() = LiveRecordingService.stop(app)
 
-    fun dismissLive() = app.liveController.reset()
+    fun dismissLive() = app.flavor.liveController.reset()
 
     /** Accept a bare handle, "@handle", or a pasted profile/live URL. */
     private fun normalizeLiveUsername(raw: String): String {
@@ -192,8 +193,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshWatches() {
         viewModelScope.launch {
-            if (app.settings.baseUrl().isBlank()) return@launch
-            runCatching { app.api.listWatches() }
+            if (app.flavor.settings.baseUrl().isBlank()) return@launch
+            runCatching { app.flavor.api.listWatches() }
                 .onSuccess { _watches.value = it }
                 .onFailure { _watchNotice.value = it.message ?: "Couldn't reach the register." }
         }
@@ -206,7 +207,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         viewModelScope.launch {
-            runCatching { app.api.createWatch(username, _watchDuration.value.toIntOrNull()) }
+            runCatching { app.flavor.api.createWatch(username, _watchDuration.value.toIntOrNull()) }
                 .onSuccess {
                     _watchUsername.value = ""
                     _watchDuration.value = ""
@@ -219,7 +220,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stopWatch(id: String) {
         viewModelScope.launch {
-            runCatching { app.api.stopWatch(id) }
+            runCatching { app.flavor.api.stopWatch(id) }
                 .onFailure { _watchNotice.value = it.message ?: "Couldn't stop that order." }
             refreshWatches()
         }
@@ -227,7 +228,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteWatch(id: String) {
         viewModelScope.launch {
-            runCatching { app.api.deleteWatch(id) }
+            runCatching { app.flavor.api.deleteWatch(id) }
                 .onFailure { _watchNotice.value = it.message ?: "Couldn't discard that order." }
             refreshWatches()
         }
