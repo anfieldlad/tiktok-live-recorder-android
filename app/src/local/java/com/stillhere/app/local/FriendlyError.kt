@@ -22,7 +22,7 @@ object FriendlyError {
     // yt-dlp's login walls often also mention rate limits or unavailability,
     // and its login hint carries a github.com FAQ link.
     private val LOGIN = listOf(
-        "login required", "log in", "sign in to confirm", "private", "--cookies", "registered users", "login page",
+        "login required", "log in", "sign in to confirm", "private", "registered users", "login page",
     )
     private val RATE_LIMIT = listOf("http error 429", "too many requests")
     private val GONE = listOf(

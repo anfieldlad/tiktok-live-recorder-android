@@ -118,4 +118,12 @@ class FriendlyErrorTest {
                 "template. Confirm you are on the latest version using  yt-dlp -U",
         ),
     )
+
+    @Test
+    fun instagramEmptyMediaResponseIsABugNotALoginWall() = assertEquals(
+        "Instagram did not return this post. ${FriendlyError.UPDATE_HINT}",
+        instagram(
+            "ERROR: [Instagram] Cabc: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If it is not, then use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (instagram) to provide account credentials. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Otherwise, if the post is accessible in browser without being logged-in, please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+        ),
+    )
 }
