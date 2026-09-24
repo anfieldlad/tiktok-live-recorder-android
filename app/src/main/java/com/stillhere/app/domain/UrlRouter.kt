@@ -1,6 +1,5 @@
 package com.stillhere.app.domain
 
-import com.stillhere.app.net.Platform
 import java.net.URI
 
 /**

@@ -1,6 +1,7 @@
 package com.stillhere.app.net
 
 import com.stillhere.app.data.SettingsRepo
+import com.stillhere.app.domain.Platform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -41,7 +42,7 @@ class ApiClient(
             val body = buildRequestJson(url).toRequestBody(JSON_MEDIA)
 
             val request = Request.Builder()
-                .url(base + platform.path)
+                .url(base + downloadPath(platform))
                 .post(body)
                 .applyApiKey()
                 .build()
@@ -161,7 +162,7 @@ class ApiClient(
     suspend fun submitDownload(platform: Platform, url: String): DownloadJob =
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
-                .url("${requireBaseUrl()}${platform.path}?async=1")
+                .url("${requireBaseUrl()}${downloadPath(platform)}?async=1")
                 .post(buildRequestJson(url).toRequestBody(JSON_MEDIA))
                 .applyApiKey()
                 .build()
@@ -262,6 +263,13 @@ class ApiClient(
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw toApiException(response.code, response.body?.string().orEmpty())
         }
+    }
+
+    // The same endpoint for TikTok and YouTube on purpose: the server routes on
+    // the link's hostname, so YouTube never needed an address of its own.
+    private fun downloadPath(platform: Platform): String = when (platform) {
+        Platform.TIKTOK, Platform.YOUTUBE -> "/downloads"
+        Platform.INSTAGRAM -> "/instagram/downloads"
     }
 
     // Exhaustive `when`, not `if TIKTOK else instagram`. With a third platform

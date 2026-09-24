@@ -28,7 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stillhere.app.auth.SessionLoginActivity
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 import com.stillhere.app.ui.AppViewModel
 import com.stillhere.app.ui.ledger.FiledHead
 import com.stillhere.app.ui.ledger.Ledger

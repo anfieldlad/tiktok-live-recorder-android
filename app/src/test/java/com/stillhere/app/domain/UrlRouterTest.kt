@@ -1,6 +1,5 @@
 package com.stillhere.app.domain
 
-import com.stillhere.app.net.Platform
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

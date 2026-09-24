@@ -1,19 +1,8 @@
 package com.stillhere.app.net
 
+import com.stillhere.app.domain.Platform
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-/**
- * The two platforms the backend can download from. [path] is the POST endpoint
- * (relative to the configured base URL); routing is decided from a URL's hostname.
- */
-enum class Platform(val path: String, val label: String) {
-    TIKTOK("/downloads", "TikTok"),
-    INSTAGRAM("/instagram/downloads", "Instagram"),
-    // The same endpoint as TikTok on purpose: the server routes on the link's
-    // hostname, so YouTube never needed an address of its own.
-    YOUTUBE("/downloads", "YouTube"),
-}
 
 /**
  * Mirrors the FastAPI response from `POST /downloads` and `POST /instagram/downloads`.

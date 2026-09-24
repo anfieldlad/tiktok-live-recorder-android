@@ -4,7 +4,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 
 /**
  * The web app's token layer, in Kotlin.

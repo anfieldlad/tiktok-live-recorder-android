@@ -1,7 +1,7 @@
 package com.stillhere.app.ui.ledger
 
 import androidx.compose.ui.unit.dp
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test

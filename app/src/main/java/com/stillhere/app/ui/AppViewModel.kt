@@ -10,7 +10,7 @@ import com.stillhere.app.download.DownloadProgress
 import com.stillhere.app.live.LiveRecordingService
 import com.stillhere.app.live.LiveState
 import com.stillhere.app.net.LiveStatus
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 import com.stillhere.app.net.WatchJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

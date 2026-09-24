@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stillhere.app.data.HistoryEntry
 import com.stillhere.app.download.DownloadProgress
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 import com.stillhere.app.ui.AppViewModel
 import com.stillhere.app.ui.ledger.EntryCard
 import com.stillhere.app.ui.ledger.Eyebrow

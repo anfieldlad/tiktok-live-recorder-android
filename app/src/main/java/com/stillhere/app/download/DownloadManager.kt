@@ -7,7 +7,7 @@ import com.stillhere.app.data.SavedItem
 import com.stillhere.app.domain.UrlRouter
 import com.stillhere.app.net.ApiClient
 import com.stillhere.app.net.ApiException
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 
 /** Live state of a single download, surfaced to the UI and the notification. */
 sealed interface DownloadProgress {

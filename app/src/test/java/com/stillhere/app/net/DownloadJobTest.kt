@@ -1,5 +1,6 @@
 package com.stillhere.app.net
 
+import com.stillhere.app.domain.Platform
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

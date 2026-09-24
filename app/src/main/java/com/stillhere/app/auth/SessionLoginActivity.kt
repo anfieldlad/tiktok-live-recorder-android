@@ -21,7 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.stillhere.app.StillHereApp
-import com.stillhere.app.net.Platform
+import com.stillhere.app.domain.Platform
 import kotlinx.coroutines.launch
 
 /**
