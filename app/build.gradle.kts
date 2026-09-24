@@ -30,6 +30,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "engine"
+    productFlavors {
+        // Today's app: the backend does the work. No suffix, so installs keep upgrading.
+        create("server") {
+            dimension = "engine"
+        }
+        // Does the work on the phone; installs beside the server app.
+        create("local") {
+            dimension = "engine"
+            applicationIdSuffix = ".local"
+            versionNameSuffix = "-local"
+        }
+    }
+
     signingConfigs {
         if (keystorePropsFile.exists()) {
             create("release") {

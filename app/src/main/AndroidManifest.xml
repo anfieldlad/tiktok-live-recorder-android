@@ -55,12 +55,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- Streams a TikTok live to the gallery for the whole broadcast. -->
-        <service
-            android:name=".live.LiveRecordingService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
     </application>
 
 </manifest>
