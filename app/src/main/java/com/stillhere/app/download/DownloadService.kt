@@ -46,12 +46,15 @@ class DownloadService : Service() {
         val app = applicationContext as StillHereApp
         activeJobs.incrementAndGet()
         scope.launch {
-            app.downloadManager.download(text) { progress ->
-                app.controller.update(progress)
-                notify(progress)
-            }
-            if (activeJobs.decrementAndGet() == 0) {
-                stopIfIdle()
+            try {
+                app.downloadManager.download(text) { progress ->
+                    app.controller.update(progress)
+                    notify(progress)
+                }
+            } finally {
+                if (activeJobs.decrementAndGet() == 0) {
+                    stopIfIdle()
+                }
             }
         }
         return START_NOT_STICKY
