@@ -70,6 +70,12 @@ class YtDlpUpdater(
             _state.value = UpdaterState(version = ytDlp.version(), busy = false, message = describe(outcome))
             return outcome
         } finally {
+            // Cancellation (or any throw) can land between setting busy = true and the
+            // success path's full-state write above, which would otherwise leave busy
+            // stuck true and the Update button disabled forever. update() here is a
+            // plain, non-suspending CAS, so it still runs under cancellation and is a
+            // no-op if the success path already turned busy back off.
+            _state.update { it.copy(busy = false) }
             updating.set(false)
         }
     }
