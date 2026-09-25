@@ -46,7 +46,14 @@ class TikwmEngine(
 class InstagramEngine(
     private val client: OkHttpClient,
     private val downloader: RemoteDownloader,
+    private val apiBase: String = "https://www.instagram.com",
 ) : MediaEngine {
+
+    // A hand-set Cookie header survives a cross-host redirect under OkHttp's default
+    // follower, and an expired session usually shows up as a 302 to the login page —
+    // which would otherwise carry the sessionid to whatever host it redirects to.
+    // Redirects are refused outright and treated the same as an expired session.
+    private val noRedirectClient = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
     override suspend fun fetchInto(routed: UrlRouter.Routed, outDir: File, session: Session?) =
         withContext(Dispatchers.IO) {
@@ -54,16 +61,16 @@ class InstagramEngine(
             val shortcode = InstagramShortcode.fromUrl(routed.url)
                 ?: throw EngineFailure("ERROR: Unsupported URL: ${routed.url}")
             val request = Request.Builder()
-                .url("https://www.instagram.com/api/v1/media/${InstagramShortcode.toMediaId(shortcode)}/info/")
+                .url("$apiBase/api/v1/media/${InstagramShortcode.toMediaId(shortcode)}/info/")
                 .header("Cookie", "sessionid=${session.sessionId}")
                 .header("X-IG-App-ID", WEB_APP_ID)
                 .header("User-Agent", RemoteDownloader.USER_AGENT)
                 .header("Referer", "https://www.instagram.com/")
                 .build()
             val body = engineCall {
-                client.newCall(request).execute().use { response ->
+                noRedirectClient.newCall(request).execute().use { response ->
                     when {
-                        response.code == 401 || response.code == 403 ->
+                        response.code == 401 || response.code == 403 || response.code in 300..399 ->
                             throw EngineFailure("Your Instagram sign-in has expired. Sign in again.")
                         response.code == 404 -> throw EngineFailure("ERROR: HTTP Error 404: Not Found")
                         !response.isSuccessful -> throw EngineFailure("Instagram answered HTTP ${response.code}")
