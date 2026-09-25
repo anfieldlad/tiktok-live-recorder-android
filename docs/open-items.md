@@ -105,6 +105,56 @@ Sessions → Update now.
 The carousel check needs an Instagram sign-in done first, in-app under Sessions — the
 person running the test does that themselves.
 
+**Results (2026-09-25, x86_64 emulator, `emulator-5554`, Android 14):**
+
+- Install both apps — **pass**. Two icons installed side by side: "Still Here"
+  (`com.stillhere.app`) and "Still Here Local" (`com.stillhere.app.local`).
+- Server app unchanged — **pass**. Three tabs present (Record Live,
+  Auto-Record, Save Post); Sessions shows the Server section (Backend URL, API
+  key, TikTok/Instagram session rows). Saved
+  `https://www.tiktok.com/@hankgreen1/video/7047596209028074758` through the
+  configured backend: notification "Saved to your gallery" / "1 file(s)",
+  file landed in `Movies/StillHere`.
+- Local app shell — **pass**. No nav strip on the home screen; Sessions shows
+  the Engine section with "yt-dlp yt-dlp 2026.08.19".
+- 1. TikTok video — **pass**. URL
+  `https://www.tiktok.com/@hankgreen1/video/7047596209028074758`. Notification
+  "Saved to your gallery" / "1 file(s)"; `7047596209028074758.mp4` (5.1 MB) in
+  `Movies/StillHere`.
+- 2. TikTok photo post — **pass**. URL
+  `https://www.tiktok.com/@celinedion/photo/7603075722235694344`. Notification
+  "Saved to your gallery" / "4 file(s)"; `7603075722235694344-image-001.jpg`
+  through `-004.jpg` in `Pictures/StillHere`, in order.
+- 3. Instagram reel, signed out — **pass**. URL
+  `https://www.instagram.com/reel/DcBx_I1iHZW/` (NASA). Notification "Saved to
+  your gallery" / "1 file(s)"; `Video by nasa-DcBx_I1iHZW.mp4` (13.6 MB) in
+  `Movies/StillHere`.
+- 4. Instagram photo post, signed out — **pass**. URL
+  `https://www.instagram.com/p/DbGvdS8IDTu/` (NASA). Notification exactly as
+  expected: "Download failed" / "Sign in to Instagram to save photo posts."
+- 5. Instagram carousel, signed in — **needs a human sign-in — not run.**
+- 6. YouTube Short — **pass**. URL
+  `https://www.youtube.com/shorts/BGQWPY4IigY`. Notification "Saved to your
+  gallery" / "1 file(s)"; file in `Movies/StillHere`.
+- 7. YouTube video over 5 minutes — **pass**. URL
+  `https://www.youtube.com/watch?v=UF8uR6Z6KLc` ("Steve Jobs' 2005 Stanford
+  Commencement Address", ~15 min). Notification "Saved to your gallery" / "1
+  file(s)"; single MP4 (21.5 MB) in `Movies/StillHere`, confirmed to contain
+  both a `vide` and a `soun` handler atom (audio/video merged, not
+  video-only).
+- 8. Sessions → Update now — **pass**. Tapping it changed the Engine caption
+  from "Updated." to "Already the newest.", version number "2026.08.19" shown
+  throughout.
+- 9. Leave the app while saving — **pass**. Shared
+  `https://www.tiktok.com/@pokemonlife22/video/7059698374567611694`, then
+  immediately pressed Home; the notification still completed to "Saved to
+  your gallery" / "1 file(s)" with the app backgrounded, and
+  `7059698374567611694.mp4` landed in `Movies/StillHere`.
+- Cleanup — **pass**. `adb shell run-as com.stillhere.app.local ls cache/jobs`
+  returned empty (no leftover job directories).
+- No crashes observed in `logcat` (`AndroidRuntime`/`FATAL EXCEPTION`) across
+  the run.
+
 ---
 
 ## 3. Deliberate trade-offs — not bugs
