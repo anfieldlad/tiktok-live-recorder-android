@@ -118,28 +118,64 @@ Still Here Local needs no configuration.
 
 ```
 app/src/main/java/com/stillhere/app/
-  TtlApp.kt                 Application + tiny manual-DI container (lazy singletons)
-  MainActivity.kt           Compose host; clipboard check on resume; ACTION_VIEW links
-  ShareReceiverActivity.kt  ACTION_SEND target (the share-sheet entry point)
+  StillHereApp.kt              Application + tiny manual-DI container (lazy singletons)
+  Flavor.kt                    The contract each flavor's FlavorModule fulfils
+  Features.kt                  What a flavor offers: its tabs, its Sessions-sheet note
+  MainActivity.kt               Compose host; clipboard check on resume; ACTION_VIEW links
+  ShareReceiverActivity.kt      ACTION_SEND target (the share-sheet entry point)
   auth/
-    SessionLoginActivity.kt WebView login; captures the sessionid cookie -> backend
-  net/
-    DownloadModels.kt       Platform enum + response/error models
-    AuthModels.kt           Auth status model
-    ApiClient.kt            OkHttp client: createDownload(), withFile(), auth*()
-  domain/UrlRouter.kt       Extract a URL from shared text + route by hostname
+    SessionStore.kt             Where a platform's login cookie lives: backend, or this phone only
+    SessionLoginActivity.kt     WebView login; captures the sessionid cookie -> the flavor's store
+  domain/                       link parsing: Platform.kt (the three platforms), UrlRouter.kt (extract + route by
+                                hostname), MediaFiles.kt (real media, filtered from extractor sidecars/leftovers)
   download/
-    DownloadManager.kt      Orchestrates POST -> stream files -> gallery; emits progress
-    DownloadController.kt    Process-wide StateFlow of the active download
-    DownloadService.kt      Foreground service that runs a download + notification
-  data/
-    SettingsRepo.kt         DataStore: backend URL + API key
-    HistoryRepo.kt          DataStore: recent downloads (JSON)
-    MediaStoreSaver.kt      Writes bytes into the gallery via MediaStore
+    MediaSource.kt                Flavor seam: a routed link -> media files (backend vs. local engines)
+    DownloadManager.kt            Orchestrates fetch -> stream files -> gallery; emits progress
+    DownloadController.kt         Process-wide StateFlow of the active download
+    DownloadService.kt            Foreground service that runs a download + notification
+  data/                           HistoryRepo.kt (DataStore: recent downloads, JSON), MediaStoreSaver.kt
+                                  (writes bytes into the gallery via MediaStore)
   ui/
-    AppViewModel.kt         State for the screens
-    AppUi.kt                Home + Settings + progress/clipboard/history composables
-    theme/Theme.kt          Material 3 theme
+    AppRoot.kt                     Scaffold: tab strip, Home/Save plus the flavor's own screens
+    AppViewModel.kt                State for the shared screens: history, active download, sessions
+    Destination.kt                 The sections the web has; which ones a flavor shows
+    save/SavePostScreen.kt         Paste-a-link screen + history list, shared by both flavors
+    sessions/SessionsSheet.kt      Accounts sheet: per-platform login status
+    ledger/                        the Ledger design-system primitives (theme, tokens, type, buttons, fields, cards, stamps)
+
+app/src/server/java/com/stillhere/app/
+  FlavorModule.kt                 The server flavor: every download, session and live stream goes through the backend
+  FlavorFeatures.kt               Server's tabs (Record, Watch, Save) and Sessions-sheet note
+  data/SettingsRepo.kt            DataStore: backend URL + API key
+  net/
+    ApiClient.kt                   OkHttp client over the backend: create a download, stream a file
+    ServerMediaSource.kt           Asks the backend to fetch a link, then streams back each file
+    ServerSessionStore.kt          Sessions live on the backend; this app only hands them over
+    *Models.kt                     Response models mirroring the backend (downloads, auth, live, watch)
+  live/
+    LiveController.kt               Shared state of the active live recording
+    LiveRecordingService.kt         Foreground service that runs a live recording
+    LiveUsername.kt                 Accept a handle, "@handle", or a pasted profile/live URL
+  ui/
+    FlavorScreens.kt                 The tabs only this flavor has (Record, Watch)
+    record/, watch/                  Record-live, and auto-record (standing orders), each screen + its view model
+    sessions/ServerSettings*.kt      Backend URL / API key editor, in the Sessions sheet
+
+app/src/local/java/com/stillhere/app/
+  FlavorModule.kt                  The local flavor: everything happens on this phone
+  FlavorFeatures.kt                Local's tabs (Save only) and Sessions-sheet note
+  auth/LocalSessionStore.kt        Keeps each platform's sessionid on this phone only
+  local/
+    YtDlp.kt, YtDlpArgs.kt, YtDlpUpdater.kt, UpdatePolicy.kt    Bundled yt-dlp: run it, build its args, self-update, update cadence
+    LocalRoute.kt, Engines.kt, EngineCalls.kt, LocalMediaSource.kt    Which engine handles a link, in order, and how failures fall through
+    TikTokEngine.kt, TikTokPageParser.kt, TikwmParser.kt    Read TikTok directly with OkHttp; fall back to tikwm.com
+    InstagramMediaParser.kt, InstagramShortcode.kt    Instagram's media API, for photo posts
+    RemoteDownloader.kt, RemoteMedia.kt, PublicUrl.kt    Fetch a fallback engine's URLs, guarded against a hostile server-side redirect
+    SessionCookies.kt, JobCookieJar.kt    Per-platform cookie facts; a per-save jar for signed CDN URLs
+    MediaExtension.kt, FriendlyError.kt    Extension from a response; an engine failure -> a sentence for the user
+  ui/
+    FlavorScreens.kt                 Local has no tabs of its own; Save post is shared
+    YtDlpSection.kt                  Engine section of the Sessions sheet: which yt-dlp, and a way to update it
 ```
 
 `src/main` is shared; `src/server` talks to the backend; `src/local` runs yt-dlp. Nothing in `main` or
