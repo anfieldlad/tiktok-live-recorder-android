@@ -6,6 +6,7 @@ import com.stillhere.app.data.MediaStoreSaver
 import com.stillhere.app.data.SavedItem
 import com.stillhere.app.domain.Platform
 import com.stillhere.app.domain.UrlRouter
+import kotlinx.coroutines.CancellationException
 
 /** Live state of a single download, surfaced to the UI and the notification. */
 sealed interface DownloadProgress {
@@ -52,6 +53,8 @@ class DownloadManager(
             DownloadProgress.Done(routed.platform, saved).also(onProgress)
         } catch (e: MediaException) {
             fail(e.message ?: "Download failed.", onProgress)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             fail(e.message ?: "Unexpected error.", onProgress)
         }

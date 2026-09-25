@@ -6,6 +6,8 @@ import com.stillhere.app.domain.UrlRouter
 import com.stillhere.app.download.IncomingFile
 import com.stillhere.app.download.MediaException
 import com.stillhere.app.download.MediaSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -30,19 +32,20 @@ class LocalMediaSource(
     private val now: () -> Long = System::currentTimeMillis,
 ) : MediaSource {
 
-    override suspend fun fetch(routed: UrlRouter.Routed, onFile: (IncomingFile, InputStream) -> Unit) {
-        val jobDir = File(jobsRoot, UUID.randomUUID().toString())
-        if (!jobDir.mkdirs()) throw MediaException("Couldn't make room to save this.")
-        try {
-            val files = runEngines(routed, jobDir, session(routed.platform, jobDir))
-            files.forEachIndexed { index, file ->
-                // No content type: MediaStoreSaver infers it from the extension.
-                file.inputStream().use { onFile(IncomingFile(index + 1, files.size, file.name, null), it) }
+    override suspend fun fetch(routed: UrlRouter.Routed, onFile: (IncomingFile, InputStream) -> Unit) =
+        withContext(Dispatchers.IO) {
+            val jobDir = File(jobsRoot, UUID.randomUUID().toString())
+            if (!jobDir.mkdirs()) throw MediaException("Couldn't make room to save this.")
+            try {
+                val files = runEngines(routed, jobDir, session(routed.platform, jobDir))
+                files.forEachIndexed { index, file ->
+                    // No content type: MediaStoreSaver infers it from the extension.
+                    file.inputStream().use { onFile(IncomingFile(index + 1, files.size, file.name, null), it) }
+                }
+            } finally {
+                jobDir.deleteRecursively()
             }
-        } finally {
-            jobDir.deleteRecursively()
         }
-    }
 
     private suspend fun runEngines(routed: UrlRouter.Routed, jobDir: File, session: Session?): List<File> {
         var firstFailure: String? = null
