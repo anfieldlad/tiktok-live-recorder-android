@@ -26,7 +26,7 @@ class TikwmEngine(
             val url = API.toHttpUrl().newBuilder().addQueryParameter("url", routed.url).build()
             val body = get(Request.Builder().url(url).header("User-Agent", RemoteDownloader.USER_AGENT).build())
             val media = TikwmParser.parse(body)
-            if (media.isEmpty()) throw EngineFailure("This post couldn't be read. It may be deleted or private.")
+            if (media.isEmpty()) throw EngineFailure("This post is unavailable")
             media.forEach { engineCall { downloader.download(it, outDir, "https://www.tiktok.com/") } }
         }
 

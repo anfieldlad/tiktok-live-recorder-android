@@ -120,6 +120,24 @@ class FriendlyErrorTest {
     )
 
     @Test
+    fun tikwmRateLimitReadsAsARateLimit() = assertEquals(
+        "TikTok is rate-limiting. Try again in a few minutes.",
+        tiktok("tikwm answered HTTP 429"),
+    )
+
+    @Test
+    fun instagramRateLimitReadsAsARateLimit() = assertEquals(
+        "Instagram is rate-limiting. Try again in a few minutes.",
+        instagram("Instagram answered HTTP 429"),
+    )
+
+    @Test
+    fun tikwmUnreadablePostIsGoneNotALoginWall() = assertEquals(
+        "This post is gone — deleted, private, or region-locked.",
+        tiktok("This post is unavailable"),
+    )
+
+    @Test
     fun instagramEmptyMediaResponseIsABugNotALoginWall() = assertEquals(
         "Instagram did not return this post. ${FriendlyError.UPDATE_HINT}",
         instagram(

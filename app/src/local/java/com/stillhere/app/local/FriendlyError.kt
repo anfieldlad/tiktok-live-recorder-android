@@ -24,7 +24,7 @@ object FriendlyError {
     private val LOGIN = listOf(
         "login required", "log in", "sign in to confirm", "private", "registered users", "login page",
     )
-    private val RATE_LIMIT = listOf("http error 429", "too many requests")
+    private val RATE_LIMIT = listOf("http error 429", "too many requests", "answered http 429")
     private val GONE = listOf(
         "unexpected response from webpage request", "video currently unavailable", "video unavailable",
         "this post is unavailable", "http error 404", "has been removed", "no longer available",
