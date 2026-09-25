@@ -4,9 +4,9 @@
 
     <!-- Cleartext exists for a backend on a private network. Local has none. -->
     <!-- Local keeps sessionid in the sessions DataStore and the WebView cookie DB.
-         allowBackup="false" keeps both out of cloud backup on API <=30; the data
-         extraction rules keep them out of cloud backup AND device-to-device
-         transfer on API 31+, so the session never leaves the phone either way. -->
+         allowBackup="false" keeps both out of cloud backup; on Android 12+ it
+         doesn't cover device-to-device transfer, so the data extraction rules
+         exclude everything from both. The session never leaves the phone. -->
     <application
         android:usesCleartextTraffic="false"
         android:allowBackup="false"

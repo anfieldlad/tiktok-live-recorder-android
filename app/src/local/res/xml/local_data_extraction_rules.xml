@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Local's logins must never leave the phone. android:allowBackup="false" only stops
-  cloud backup on API 30 and below; on API 31+ it does nothing for cloud backup and
-  nothing at all for device-to-device transfer. These rules cover both cloud backup
-  and device transfer on 31+ by excluding everything, so the sessions DataStore and
+  Local's logins must never leave the phone. android:allowBackup="false" stops cloud
+  backup, but for apps targeting Android 12+ it does not stop device-to-device
+  transfer. These rules exclude everything from both, so the sessions DataStore and
   the WebView cookie database can't be copied off the phone either way.
 -->
 <data-extraction-rules>
