@@ -12,7 +12,7 @@ class EngineFailure(val raw: String) : Exception(raw)
  */
 object FriendlyError {
 
-    const val UPDATE_HINT = "Updating yt-dlp in Settings often fixes this."
+    const val UPDATE_HINT = "Updating yt-dlp under Sessions often fixes this."
 
     private val NETWORK = listOf(
         "unable to resolve host", "failed to resolve", "no address associated with hostname",

@@ -4,9 +4,10 @@ A small, native Android client for the self-hosted [`ttl-downloader`](../ttl-dow
 sends TikTok and Instagram links to your own server (which runs `yt-dlp` / `gallery-dl`) and saves the
 returned media straight into your phone's gallery.
 
-This is a **thin client** — it does no extraction itself. The downloading is done by the backend; the app
-just hands it a URL and streams the result to the gallery. It's built for **personal / sideload** use
-(no Play Store), Android only.
+Still Here is a **thin client** to your backend — it does no extraction itself. It hands the backend a
+URL and streams the result to the gallery. Still Here Local is the other flavor: no backend at all, it
+does the extraction on the phone itself, with a bundled yt-dlp. Both are built for **personal / sideload**
+use (no Play Store), Android only.
 
 ## Two apps, one codebase
 

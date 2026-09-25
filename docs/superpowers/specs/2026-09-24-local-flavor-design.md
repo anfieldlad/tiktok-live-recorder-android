@@ -117,8 +117,8 @@ Server settings and Local's yt-dlp "Engine" section are flavor composables
   recording (`LiveRecordingService`, `RecordLiveScreen`, the live state in
   `AppViewModel`) also moves here for phase 1.
 - **`src/local`** — `LocalMediaSource`, the yt-dlp wrapper, the native `TikTokEngine`,
-  the tikwm and Instagram fallbacks, `LocalSessionStore`, and the Engine section in
-  Settings.
+  the tikwm and Instagram fallbacks, `LocalSessionStore`, and the Engine section of
+  the Sessions sheet.
 
 **The rule:** anything that touches the backend lives only in `src/server`. If
 `src/local` compiles, the local app has no backend in it.
@@ -132,8 +132,10 @@ except that the local Sessions sheet has no backend URL or API key fields.
 
 ## The local save pipeline
 
-`LocalMediaSource.fetch` runs inside the existing foreground `DownloadService`, one
-download at a time as `DownloadController` already enforces.
+`LocalMediaSource.fetch` runs inside the existing foreground `DownloadService`.
+`DownloadService` can run saves concurrently — each gets its own job directory —
+but yt-dlp runs are serialised by its own mutex, so a second yt-dlp save waits
+for the first to finish.
 
 ### 1. Prepare
 
@@ -208,10 +210,17 @@ then writes history and emits `Done`.
 
 `LocalSessionStore` keeps `sessionid` per platform in a separate `sessions`
 Preferences DataStore in app-private storage. It is never sent anywhere except the
-platform it belongs to. `clear` also removes that platform's cookies from the WebView
-`CookieManager`, so the next sign-in shows a fresh login page.
+platform it belongs to. `clear` expires the WebView's `sessionid` cookie for that
+platform (and every sign-in starts by clearing all of the WebView's cookies), so
+the next sign-in shows a fresh login page.
 `SessionLoginActivity` calls `sessionStore.save(...)` instead of
 `api.saveSession(...)`.
+
+Local also sets `android:allowBackup="false"`, so `sessionid` — kept in the
+`sessions` DataStore and the WebView cookie database — never leaves the phone
+through Auto Backup. And the Instagram API call is made with redirects turned
+off, so an expired session can't be carried off Instagram by a redirect either;
+either way, the session stays on the platform it belongs to.
 
 ## yt-dlp lifecycle
 
@@ -219,9 +228,9 @@ platform it belongs to. `clear` also removes that platform's cookies from the We
   The first run unpacks Python and takes seconds; the existing `Resolving` state
   covers it.
 - **Updates.** On app start, a background check against the stable channel, at most
-  once per 24 hours and never while a download runs. Settings shows
-  *"yt-dlp <version> · Update now"*.
-- **Nudge.** An extractor-shaped failure ends with *"Updating yt-dlp in Settings
+  once per 24 hours and never while a download runs. The Engine section of the
+  Sessions sheet shows *"yt-dlp <version> · Update now"*.
+- **Nudge.** An extractor-shaped failure ends with *"Updating yt-dlp under Sessions
   often fixes this."*
 
 ## Errors

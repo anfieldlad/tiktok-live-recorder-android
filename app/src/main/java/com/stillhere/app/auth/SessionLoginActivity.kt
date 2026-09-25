@@ -26,7 +26,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Full-screen WebView that signs the user into TikTok or Instagram, captures the
- * `sessionid` cookie once login succeeds, and hands it to the backend.
+ * `sessionid` cookie once login succeeds, and hands it to this flavor's session
+ * store — the backend, or storage on the phone.
  *
  * After a Google/third-party login the platform often redirects via JS to a page that
  * renders blank in a WebView and never fires onPageFinished — so relying on that alone
