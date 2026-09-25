@@ -3,8 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Cleartext exists for a backend on a private network. Local has none. -->
+    <!-- Local keeps sessionid in the sessions DataStore and the WebView cookie DB;
+         Auto Backup would copy both off the phone, so it stays off here. -->
     <application
         android:usesCleartextTraffic="false"
-        tools:replace="android:usesCleartextTraffic" />
+        android:allowBackup="false"
+        tools:replace="android:usesCleartextTraffic,android:allowBackup" />
 
 </manifest>
