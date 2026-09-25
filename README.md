@@ -8,6 +8,22 @@ This is a **thin client** — it does no extraction itself. The downloading is d
 just hands it a URL and streams the result to the gallery. It's built for **personal / sideload** use
 (no Play Store), Android only.
 
+## Two apps, one codebase
+
+| | **Still Here** (`server`) | **Still Here Local** (`local`) |
+|---|---|---|
+| Does the work | your `ttl-downloader` backend | this phone, with a bundled yt-dlp |
+| Save posts (TikTok, Instagram, YouTube) | yes | yes |
+| Record a live | yes | not yet |
+| Auto-record, shared register | yes | no |
+| Sessions stored | on the backend | on the phone only |
+| Setup | a backend URL | none |
+
+Both install side by side (`com.stillhere.app` and `com.stillhere.app.local`).
+Local reads TikTok itself (yt-dlp can't on Android), falls back to tikwm.com only
+when that fails, and uses Instagram's media API for photo posts. The media API
+needs an Instagram sign-in.
+
 ## Screenshots
 
 | Home | Downloading | Saved |
@@ -76,27 +92,32 @@ Requirements: **JDK 17+** and the **Android SDK** (platform + build-tools 36). O
 ```powershell
 # Point Gradle at a JDK 17+ (Java 8 will NOT work with this AGP version)
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-17.0.4.1"
-.\gradlew.bat assembleDebug
+.\gradlew.bat assembleServerDebug   # app/build/outputs/apk/server/debug/app-server-debug.apk
+.\gradlew.bat assembleLocalDebug    # app/build/outputs/apk/local/debug/app-local-<abi>-debug.apk
 ```
 
-The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+Build each flavor in its own command. Local ships one APK per ABI; most phones want arm64-v8a.
 
 > `local.properties` (git-ignored) must point `sdk.dir` at your Android SDK. Android Studio writes this
 > automatically; the committed example points at the default Windows location.
 
 ### 3. Install and configure
 
+For the server app:
+
 ```powershell
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install app/build/outputs/apk/server/debug/app-server-debug.apk
 ```
 
 On first launch, open **Settings** and set the **Backend URL** (e.g. `http://100.x.y.z:8000`). Leave the
 API key blank unless your server requires one.
 
+Still Here Local needs no configuration.
+
 ## Project structure
 
 ```
-app/src/main/java/com/ttldownloader/app/
+app/src/main/java/com/stillhere/app/
   TtlApp.kt                 Application + tiny manual-DI container (lazy singletons)
   MainActivity.kt           Compose host; clipboard check on resume; ACTION_VIEW links
   ShareReceiverActivity.kt  ACTION_SEND target (the share-sheet entry point)
@@ -120,6 +141,9 @@ app/src/main/java/com/ttldownloader/app/
     AppUi.kt                Home + Settings + progress/clipboard/history composables
     theme/Theme.kt          Material 3 theme
 ```
+
+`src/main` is shared; `src/server` talks to the backend; `src/local` runs yt-dlp. Nothing in `main` or
+`local` may import the `net` package.
 
 ## Tech
 

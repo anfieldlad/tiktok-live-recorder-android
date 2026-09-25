@@ -9,6 +9,11 @@ https://github.com/anfieldlad/tiktok-live-recorder-android/pull/new/feat/still-h
 The app builds, 30 unit tests pass, and the instrumented tests compile — but
 nothing has run on a real device.
 
+**Two flavors since 2026-09-24.** `server` is this app and is unchanged in
+behaviour, so the server-side shim removal it gates still stands. `local` is
+new — see `docs/superpowers/specs/2026-09-24-local-flavor-design.md`. Its
+device smoke test is item 2.4 below.
+
 Companion doc: `../../tiktok-live-recorder-app/docs/open-items.md`. **This app
 shipping is the trigger for deleting two server-side shims**, so closing these
 items unblocks work over there.
@@ -87,6 +92,18 @@ one of them is invisible in a preview:
 
 Everything is `sp`, but the nav strip is three labels across a phone. Worth one
 look at the largest accessibility font size to confirm nothing clips.
+
+### 2.4 Smoke-test Still Here Local
+
+Install the Local APK for the device's ABI (`app-local-arm64-v8a-debug.apk` on most phones,
+`app-local-x86_64-debug.apk` on the emulator) beside the server app and check:
+TikTok video · TikTok photo post · Instagram reel · Instagram carousel (signed
+in) · Instagram photo post signed out (expect "Sign in to Instagram…") ·
+YouTube Short · a long YouTube video (tests the audio/video merge) ·
+Sessions → Update now.
+
+The carousel check needs an Instagram sign-in done first, in-app under Sessions — the
+person running the test does that themselves.
 
 ---
 
