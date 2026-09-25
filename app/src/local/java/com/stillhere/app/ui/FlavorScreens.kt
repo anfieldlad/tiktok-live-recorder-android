@@ -6,6 +6,6 @@ import androidx.compose.runtime.Composable
 @Composable
 fun FlavorDestination(destination: Destination) = Unit
 
-/** Local's settings, at the top of the Sessions sheet. Filled in by the yt-dlp task. */
+/** Local's settings, at the top of the Sessions sheet. */
 @Composable
-fun FlavorSettingsSection(onDone: () -> Unit) = Unit
+fun FlavorSettingsSection(onDone: () -> Unit) = YtDlpSection()

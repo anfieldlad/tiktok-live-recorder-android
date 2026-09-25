@@ -11,6 +11,7 @@ import com.stillhere.app.local.TikTokEngine
 import com.stillhere.app.local.TikwmEngine
 import com.stillhere.app.local.YtDlp
 import com.stillhere.app.local.YtDlpEngine
+import com.stillhere.app.local.YtDlpUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,8 @@ class FlavorModule(private val app: StillHereApp) : Flavor {
 
     /** For background work that outlives any screen, such as the daily yt-dlp check. */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    val updater: YtDlpUpdater by lazy { YtDlpUpdater(app, ytDlp, scope) }
 
     private val jobsRoot get() = File(app.cacheDir, "jobs")
 
@@ -56,5 +59,6 @@ class FlavorModule(private val app: StillHereApp) : Flavor {
         // A process that died mid-download leaves its job directory, cookie file
         // included. Nothing runs yet at process start, so all of it is stale.
         jobsRoot.deleteRecursively()
+        updater.checkIfDue()
     }
 }

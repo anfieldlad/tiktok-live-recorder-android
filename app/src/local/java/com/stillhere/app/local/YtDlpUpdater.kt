@@ -1,0 +1,72 @@
+package com.stillhere.app.local
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+private val Context.ytDlpDataStore: DataStore<Preferences> by preferencesDataStore(name = "ytdlp")
+
+data class UpdaterState(
+    val version: String? = null,
+    val busy: Boolean = false,
+    val message: String? = null,
+)
+
+/** Keeps the bundled yt-dlp current: once a day by itself, or when asked. */
+class YtDlpUpdater(
+    private val context: Context,
+    private val ytDlp: YtDlp,
+    private val scope: CoroutineScope,
+) {
+    private val _state = MutableStateFlow(UpdaterState())
+    val state: StateFlow<UpdaterState> = _state.asStateFlow()
+
+    fun refreshVersion() {
+        scope.launch { _state.update { it.copy(version = ytDlp.version()) } }
+    }
+
+    /** At most once a day, in the background. A running download defers it to next launch. */
+    fun checkIfDue() {
+        scope.launch {
+            val last = context.ytDlpDataStore.data.first()[KEY_LAST_CHECK]
+            if (!UpdatePolicy.isDue(last, System.currentTimeMillis())) return@launch
+            if (update() !is UpdateOutcome.Busy) markChecked()
+        }
+    }
+
+    fun updateNow() {
+        scope.launch { if (update() !is UpdateOutcome.Busy) markChecked() }
+    }
+
+    private suspend fun update(): UpdateOutcome {
+        _state.update { it.copy(busy = true, message = null) }
+        val outcome = ytDlp.updateIfIdle()
+        _state.value = UpdaterState(version = ytDlp.version(), busy = false, message = describe(outcome))
+        return outcome
+    }
+
+    private suspend fun markChecked() {
+        context.ytDlpDataStore.edit { it[KEY_LAST_CHECK] = System.currentTimeMillis() }
+    }
+
+    private fun describe(outcome: UpdateOutcome): String = when (outcome) {
+        UpdateOutcome.Updated -> "Updated."
+        UpdateOutcome.AlreadyCurrent -> "Already the newest."
+        UpdateOutcome.Busy -> "A save is running. Try again when it's done."
+        is UpdateOutcome.Failed -> "Couldn't update: ${outcome.message}"
+    }
+
+    private companion object {
+        val KEY_LAST_CHECK = longPreferencesKey("last_update_check")
+    }
+}
