@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val Context.ytDlpDataStore: DataStore<Preferences> by preferencesDataStore(name = "ytdlp")
 
@@ -31,6 +32,14 @@ class YtDlpUpdater(
     private val _state = MutableStateFlow(UpdaterState())
     val state: StateFlow<UpdaterState> = _state.asStateFlow()
 
+    // Single-flights update() across overlapping callers (a double tap on "Update
+    // now", or the daily check racing a tap). Without this, the loser of two
+    // concurrent update() calls would still run ytDlp.updateIfIdle(), see
+    // UpdateOutcome.Busy because the winner holds yt-dlp's own mutex, and then
+    // overwrite state with busy = false while the winner's real update is still
+    // in flight — flipping the UI to idle out from under it.
+    private val updating = AtomicBoolean(false)
+
     fun refreshVersion() {
         scope.launch { _state.update { it.copy(version = ytDlp.version()) } }
     }
@@ -40,19 +49,29 @@ class YtDlpUpdater(
         scope.launch {
             val last = context.ytDlpDataStore.data.first()[KEY_LAST_CHECK]
             if (!UpdatePolicy.isDue(last, System.currentTimeMillis())) return@launch
-            if (update() !is UpdateOutcome.Busy) markChecked()
+            val outcome = update() ?: return@launch
+            if (outcome !is UpdateOutcome.Busy) markChecked()
         }
     }
 
     fun updateNow() {
-        scope.launch { if (update() !is UpdateOutcome.Busy) markChecked() }
+        scope.launch {
+            val outcome = update() ?: return@launch
+            if (outcome !is UpdateOutcome.Busy) markChecked()
+        }
     }
 
-    private suspend fun update(): UpdateOutcome {
-        _state.update { it.copy(busy = true, message = null) }
-        val outcome = ytDlp.updateIfIdle()
-        _state.value = UpdaterState(version = ytDlp.version(), busy = false, message = describe(outcome))
-        return outcome
+    /** Returns null, touching no state, if another update() is already running. */
+    private suspend fun update(): UpdateOutcome? {
+        if (!updating.compareAndSet(false, true)) return null
+        try {
+            _state.update { it.copy(busy = true, message = null) }
+            val outcome = ytDlp.updateIfIdle()
+            _state.value = UpdaterState(version = ytDlp.version(), busy = false, message = describe(outcome))
+            return outcome
+        } finally {
+            updating.set(false)
+        }
     }
 
     private suspend fun markChecked() {
