@@ -3,11 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Cleartext exists for a backend on a private network. Local has none. -->
-    <!-- Local keeps sessionid in the sessions DataStore and the WebView cookie DB;
-         Auto Backup would copy both off the phone, so it stays off here. -->
+    <!-- Local keeps sessionid in the sessions DataStore and the WebView cookie DB.
+         allowBackup="false" keeps both out of cloud backup on API <=30; the data
+         extraction rules keep them out of cloud backup AND device-to-device
+         transfer on API 31+, so the session never leaves the phone either way. -->
     <application
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/local_data_extraction_rules"
         tools:replace="android:usesCleartextTraffic,android:allowBackup" />
 
 </manifest>

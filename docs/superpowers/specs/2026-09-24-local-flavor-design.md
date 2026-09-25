@@ -216,11 +216,15 @@ the next sign-in shows a fresh login page.
 `SessionLoginActivity` calls `sessionStore.save(...)` instead of
 `api.saveSession(...)`.
 
-Local also sets `android:allowBackup="false"`, so `sessionid` — kept in the
-`sessions` DataStore and the WebView cookie database — never leaves the phone
-through Auto Backup. And the Instagram API call is made with redirects turned
-off, so an expired session can't be carried off Instagram by a redirect either;
-either way, the session stays on the platform it belongs to.
+Local also sets `android:allowBackup="false"` and ships data extraction rules
+(`local_data_extraction_rules.xml`) that exclude everything, so `sessionid` —
+kept in the `sessions` DataStore and the WebView cookie database — never
+leaves the phone through cloud backup or device-to-device transfer.
+`allowBackup="false"` alone only covers cloud backup on API 30 and below; the
+data extraction rules cover cloud backup and device transfer on API 31+. And
+the Instagram API call is made with redirects turned off, so an expired
+session can't be carried off Instagram by a redirect either; either way, the
+session stays on the platform it belongs to.
 
 ## yt-dlp lifecycle
 
