@@ -1,8 +1,9 @@
 # Still Here — Android
 
-A small, native Android client for the self-hosted [`ttl-downloader`](../ttl-downloader) backend. It
-sends TikTok and Instagram links to your own server (which runs `yt-dlp` / `gallery-dl`) and saves the
-returned media straight into your phone's gallery.
+A small, native Android app that saves TikTok, Instagram and YouTube posts straight into your phone's
+gallery. It comes as two apps from one codebase: **Still Here** sends links to your self-hosted
+[`ttl-downloader`](../ttl-downloader) backend (which runs `yt-dlp` / `gallery-dl`), and **Still Here
+Local** needs no server at all.
 
 Still Here is a **thin client** to your backend — it does no extraction itself. It hands the backend a
 URL and streams the result to the gallery. Still Here Local is the other flavor: no backend at all, it
@@ -27,34 +28,54 @@ needs an Instagram sign-in.
 
 ## Screenshots
 
-| Home | Downloading | Saved |
-| :---: | :---: | :---: |
-| <img src="docs/screenshots/home.png" width="200" alt="Home screen with recent downloads" /> | <img src="docs/screenshots/downloading.png" width="200" alt="Live download progress" /> | <img src="docs/screenshots/saved.png" width="200" alt="Saved to gallery confirmation" /> |
+Both apps share *the Ledger*, the web app's design language: cream paper on a ruled board, an oxblood
+margin rule, rubber-stamp statuses and square corners throughout.
 
-| Settings | Accounts | Web login |
-| :---: | :---: | :---: |
-| <img src="docs/screenshots/settings.png" width="200" alt="Backend settings" /> | <img src="docs/screenshots/accounts.png" width="200" alt="Per-platform login status" /> | <img src="docs/screenshots/login.png" width="200" alt="In-app web login" /> |
+**Still Here Local** — one screen, no server. The Sessions sheet shows the bundled yt-dlp and updates it.
 
-> **These screenshots are of the previous dark-themed app and are out of date.**
-> 1.0 is *the Ledger*: cream paper on a ruled board, an oxblood margin rule,
-> rubber-stamp statuses and square corners throughout — the same design language
-> as the web app. Replace them after the next device run.
+| Save post | Saving | Engine & sessions |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/local-save.png" width="200" alt="Save post screen with the filed history" /> | <img src="docs/screenshots/local-saving.png" width="200" alt="A YouTube Short being saved, stamped Working" /> | <img src="docs/screenshots/local-sessions.png" width="200" alt="Sessions sheet with the yt-dlp version, Update now, and per-platform sign-in" /> |
+
+**Still Here** — the backend does the work, so it also records lives and keeps standing orders.
+
+| Save post | Record live | Auto-record | Server & sessions |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/server-save.png" width="180" alt="Save post screen with the tab strip" /> | <img src="docs/screenshots/server-record.png" width="180" alt="Record a TikTok live" /> | <img src="docs/screenshots/server-autorecord.png" width="180" alt="Place a standing order for a creator who isn't live yet" /> | <img src="docs/screenshots/server-sessions.png" width="180" alt="Backend URL, API key and per-platform sessions" /> |
+
+Screenshots from an Android 14 emulator. The fonts are the platform's serif and monospace until the
+Ledger's own faces are bundled (see `docs/fonts.md`).
 
 ## Features
 
-- **Share-sheet import** — in TikTok or Instagram, tap **Share → Still Here** and the download starts
-  automatically. No copy-paste.
+Both apps:
+
+- **Share-sheet import** — in TikTok, Instagram or YouTube, tap **Share → Still Here** and the download
+  starts automatically. No copy-paste.
 - **Save to gallery** — videos land in `Movies/StillHere`, images in `Pictures/StillHere`, and
   show up in your gallery app. No storage permission needed (scoped storage / MediaStore).
-- **Clipboard auto-detect** — copy a TikTok/Instagram link, open the app, and a one-tap banner offers to
+- **Clipboard auto-detect** — copy a supported link, open the app, and a one-tap banner offers to
   download it.
-- **Foreground service** — downloads keep running (with a progress notification) even if you leave the app,
-  which matters because server-side downloads can take 30–120s.
-- **Auto-record** — place a standing order for a creator who is not live yet; the server watches and
-  starts recording the moment they go live.
+- **Foreground service** — downloads keep running (with a progress notification) even if you leave the
+  app, which matters because a download can take a minute or more.
 - **Account login for private media** — sign in to TikTok/Instagram in a secure in-app web login. The app
-  captures only the resulting `sessionid` cookie and stores it on *your* backend, which then uses it to
-  download private or age-restricted posts. Your username/password never touch the app.
+  captures only the resulting `sessionid` cookie; your username/password never touch the app.
+
+Still Here only:
+
+- **Record a live, and auto-record** — record a TikTok live straight to the gallery, or place a standing
+  order for a creator who is not live yet; the server watches and starts recording the moment they go
+  live.
+- **Sessions on your backend** — the captured `sessionid` is stored on *your* server, which uses it to
+  download private or age-restricted posts.
+
+Still Here Local only:
+
+- **No server** — TikTok is read directly by the app, Instagram and YouTube by a bundled yt-dlp (with
+  ffmpeg, so YouTube's audio and video are merged into one MP4).
+- **Sessions stay on the phone** — kept in app-private storage, excluded from cloud backup and
+  device-to-device transfer, and sent only to the platform they belong to.
+- **Keeps yt-dlp current** — checks for a new yt-dlp once a day, or on demand from the Sessions sheet.
 
 ## How it talks to the backend
 
@@ -68,7 +89,7 @@ needs an Instagram sign-in.
 
 Platform is chosen automatically from the link's hostname. Each file is fetched exactly once — the
 Instagram endpoint deletes its server-side copy after serving. An optional `X-API-Key` header is sent when
-an API key is configured in Settings. For login, the app reads the `sessionid` cookie from the web-login
+an API key is configured in the Sessions sheet. For login, the app reads the `sessionid` cookie from the web-login
 WebView and posts it to the backend. Note the field name is historical: TikTok has no `session_ss`
 cookie, it authenticates on `sessionid`, and the backend stores whatever value it is given under every
 session cookie name the recorder might look for. Sending only `sessionid` is enough — verified against
@@ -110,7 +131,7 @@ For the server app:
 adb install app/build/outputs/apk/server/debug/app-server-debug.apk
 ```
 
-On first launch, open **Settings** and set the **Backend URL** (e.g. `http://100.x.y.z:8000`). Leave the
+The Backend URL defaults to the author's server; to use yours, open **Sessions** (top right) and set the **Backend URL** (e.g. `http://100.x.y.z:8000`). Leave the
 API key blank unless your server requires one.
 
 Still Here Local needs no configuration.
@@ -189,11 +210,13 @@ Native Kotlin · Jetpack Compose (Material 3) · OkHttp · kotlinx.serialization
 
 ## Notes
 
-- **Cleartext HTTP is allowed.** The backend is served over plain `http://` on a private network, so the
-  app sets `android:usesCleartextTraffic="true"`. Android blocks cleartext by default; this is required
-  to reach an HTTP backend (and is acceptable for a personal app on a trusted network/Tailscale).
+- **Cleartext HTTP is allowed in Still Here only.** The backend is served over plain `http://` on a
+  private network, so the server app sets `android:usesCleartextTraffic="true"`. Android blocks cleartext
+  by default; this is required to reach an HTTP backend (and is acceptable for a personal app on a
+  trusted network/Tailscale). Still Here Local has no backend and turns cleartext off.
 - **Login & private media.** Sign-in happens in a normal web login (Instagram/TikTok's own page) inside a
-  WebView. The app captures only the `sessionid` cookie on success and hands it to your backend — it never
-  sees or stores your password. Manage sign-in per platform under **Settings → Accounts**.
+  WebView. The app captures only the `sessionid` cookie on success and hands it to your backend (Still
+  Here) or keeps it on the phone (Still Here Local) — it never sees or stores your password. Manage
+  sign-in per platform in the **Sessions** sheet (top right).
 - **Personal use.** Downloader apps are routinely rejected from the Play Store; this is meant to be
   sideloaded.

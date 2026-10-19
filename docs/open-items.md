@@ -38,17 +38,15 @@ only; Fraunces is variable and only `opsz`, `wght`, `SOFT` are used). Roughly
 a regression. Re-record them:
 
 ```bash
-./gradlew :app:updateDebugScreenshotTest
+./gradlew :app:updateServerDebugScreenshotTest
 ```
 
 ### 1.2 Replace the README screenshots
 
-`docs/screenshots/*.png` are all of the previous dark-themed app: violet→pink
-gradients, rounded cards, neon platform badges. None of it exists any more. The
-README already carries a warning banner saying so; delete the banner when the
-images are replaced.
-
-Take them after the fonts land, or they will need doing twice.
+**Done 2026-10-19**, ahead of the fonts: seven Ledger screenshots of both apps
+(`docs/screenshots/local-*.png`, `server-*.png`) from the Android 14 emulator,
+and the dark-theme banner is gone. They show the platform serif and monospace,
+so retake them once 1.1 lands — same screens, same file names.
 
 ---
 
@@ -175,8 +173,8 @@ person running the test does that themselves.
   4.15:1 on its first run. A token nudged "a shade lighter" for looks will fail
   the build.
 - **Screenshot references are committed** under
-  `app/src/debug/screenshotTest/reference/`. `./gradlew
-  :app:validateDebugScreenshotTest` diffs against them.
+  `app/src/serverDebug/screenshotTest/reference/`. `./gradlew
+  :app:validateServerDebugScreenshotTest` diffs against them.
 - **The web is the source of truth for wording.** Any copy change should be made
   on both sides. `stampFor()` is the only place that decides what a status is
   called — keep it that way.
