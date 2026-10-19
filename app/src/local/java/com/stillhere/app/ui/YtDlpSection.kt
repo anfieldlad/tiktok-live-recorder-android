@@ -39,7 +39,8 @@ fun YtDlpSection() {
     Spacer(Modifier.height(16.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            "yt-dlp ${state.version ?: "…"}",
+            // The library's version string already reads "yt-dlp 2026.08.19".
+            "yt-dlp ${state.version?.removePrefix("yt-dlp")?.trim() ?: "…"}",
             style = MaterialTheme.typography.titleMedium,
             color = Ledger.Ink,
             modifier = Modifier.weight(1f),
